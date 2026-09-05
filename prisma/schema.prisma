@@ -106,7 +106,7 @@ model Invoice {
   amountTTC      Float
   currency       String   @default("MAD")
 
-  fileData       Bytes    // the generated .docx invoice file
+  fileData       Bytes?   // the generated .docx invoice file
 
   createdAt      DateTime @default(now())
 }
