@@ -1,0 +1,134 @@
+// Prisma schema for United Transport Solutions backend
+// Uses PostgreSQL in production (Render). To test locally without Postgres,
+// you can temporarily switch provider to "sqlite" and url to "file:./dev.db" -
+// see README for details.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Admin users who can log into the dashboard
+// ---------------------------------------------------------------------------
+model AdminUser {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  createdAt    DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Clients move through exactly one status at a time:
+//   potential -> active -> (stays active, order lifecycle tracked via events)
+//   potential -> refused
+// ---------------------------------------------------------------------------
+model Client {
+  id             Int      @id @default(autoincrement())
+
+  // Contact info
+  name           String
+  phone          String
+  email          String
+
+  // Shipment info (matches the quote form / invoice fields)
+  city           String   // departure city in Morocco
+  destination    String
+  nature         String   // nature of goods
+  packages       Int?
+  weightKg       Float?
+  volume         String?
+  ice            String?  // Moroccan business tax ID, optional
+  preferredDate  String?  // free text / ISO date string from the form
+  notes          String?
+
+  source         String   // "website" | "manual"
+  status         String   @default("potential") // "potential" | "active" | "refused" | "finished"
+  refusalReason  String?
+  outcome        String?  // "success" | "failed" - set when status becomes "finished"
+  outcomeReason  String?  // used when outcome = "failed"
+
+  // Set once the order ships - reused automatically when generating the invoice
+  flightNumber   String?
+  lta            String?
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  events         Event[]
+  invoices       Invoice[]
+}
+
+// ---------------------------------------------------------------------------
+// Every action taken on a client is logged here - this is both the audit
+// trail and what drives the "history" shown on the client detail page.
+// ---------------------------------------------------------------------------
+model Event {
+  id             Int      @id @default(autoincrement())
+  clientId       Int
+  client         Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  type           String
+  // one of:
+  // quote_received, ready_to_work, refused, rewake, moved_active,
+  // order_received, order_shipped, order_arrived, order_late,
+  // order_problem, order_cancelled, invite_back_same, invite_back_other
+
+  reason         String?  // used by: refused, order_late, order_problem, order_cancelled
+  trackingNumber String?  // used by: order_shipped
+  serviceOffer   String?  // used by: invite_back_other
+  messageSent    Boolean  @default(false) // whether SMS+email actually sent OK
+
+  createdAt      DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Generated invoices (facture). PDF is stored directly in the database so
+// there is no dependency on host-disk persistence (Render's free web
+// service disk is not durable across deploys).
+// ---------------------------------------------------------------------------
+model Invoice {
+  id             Int      @id @default(autoincrement())
+  clientId       Int
+  client         Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  invoiceNumber  String   @unique
+  flightNumber   String?
+  lta            String?
+  amountHT       Float
+  amountTVA      Float
+  amountTTC      Float
+  currency       String   @default("MAD")
+
+  pdfData        Bytes
+
+  createdAt      DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Truck-leg shipment tracking (matches the "RAPPORT_TRUCK" spreadsheet
+// exactly: LTA N°, Colis, Poids, Destination, ETD Truck, ETA Truck CDG,
+// Date Vol Connexion, Commentaires, Remarque). Independent of the
+// Client/Invoice pipeline - this is operational tracking for shipments
+// that travel by truck to CDG (Paris) before a connecting flight onward.
+// ---------------------------------------------------------------------------
+model TruckShipment {
+  id              Int       @id @default(autoincrement())
+  ltaNumber       String
+  dateReception   DateTime?
+  colis           Int?
+  poids           Float?
+  destination     String?
+  etdTruck        DateTime?
+  etaTruckCdg     DateTime?
+  dateFlightConex DateTime?
+  comments        String?
+  remarque        String?
+  status          String    @default("in_transit") // "in_transit" | "arrived"
+  createdAt       DateTime  @default(now())
+}

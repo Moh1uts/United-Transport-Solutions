@@ -1,0 +1,28 @@
+{
+  "name": "uts-backend",
+  "version": "1.0.0",
+  "description": "United Transport Solutions - client & order backend",
+  "main": "src/server.js",
+  "scripts": {
+    "dev": "node src/server.js",
+    "start": "npx prisma db push --accept-data-loss && node scripts/seed-admin.js && node src/server.js",
+    "seed": "node scripts/seed-admin.js",
+    "postinstall": "prisma generate"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.20.0",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "ejs": "^3.1.10",
+    "express": "^4.19.2",
+    "express-session": "^1.18.0",
+    "nodemailer": "^6.9.14",
+    "pdfkit": "^0.15.0",
+    "prisma": "^5.20.0",
+    "twilio": "^5.2.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Connexion — United Transport Solutions</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="login-wrap">
+    <h1>Connexion au backend</h1>
+    <% if (error) { %><p class="error"><%= error %></p><% } %>
+    <form method="POST" action="/login">
+      <input type="email" name="email" placeholder="Email" required>
+      <input type="password" name="password" placeholder="Mot de passe" required>
+      <button class="btn" type="submit">Se connecter</button>
+    </form>
+  </div>
+</body>
+</html>
