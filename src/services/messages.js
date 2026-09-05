@@ -29,9 +29,9 @@ const templates = {
   }),
 
   ready_to_work: (data) => ({
-    fr: `Bonjour ${data.name}, bonne nouvelle : nous sommes prêts à traiter votre envoi. Merci de nous appeler au ${COMPANY_PHONE} pour finaliser les détails.`,
-    en: `Hello ${data.name}, good news: we're ready to handle your shipment. Please call us at ${COMPANY_PHONE} to finalize the details.`,
-    ar: `مرحباً ${data.name}، خبر سار: نحن جاهزون للتكفل بشحنتكم. يرجى الاتصال بنا على ${COMPANY_PHONE} لإتمام التفاصيل.`
+    fr: `Bonjour ${data.name}, bonne nouvelle : suite à votre demande de devis, nous sommes prêts à traiter votre envoi. Nous vous proposons un tarif de ${data.pricePerKg} DHS/kg. N'hésitez pas à nous appeler au ${COMPANY_PHONE} ou à nous écrire à ${COMPANY_EMAIL} si vous souhaitez ajuster ce tarif.`,
+    en: `Hello ${data.name}, good news: following your quote request, we're ready to handle your shipment. We're offering a rate of ${data.pricePerKg} DHS/kg. Feel free to call us at ${COMPANY_PHONE} or email ${COMPANY_EMAIL} if you'd like to discuss adjusting this rate.`,
+    ar: `مرحباً ${data.name}، خبر سار: بناءً على طلب عرض السعر الخاص بكم، نحن جاهزون للتكفل بشحنتكم. نقترح عليكم سعر ${data.pricePerKg} درهم/كلغ. لا تترددوا في الاتصال بنا على ${COMPANY_PHONE} أو مراسلتنا على ${COMPANY_EMAIL} إذا رغبتم في مناقشة تعديل هذا السعر.`
   }),
 
   refused: (data) => ({

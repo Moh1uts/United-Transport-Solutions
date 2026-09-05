@@ -57,14 +57,16 @@
     <div class="action-grid">
       <div class="action-box">
         <h3>✅ Prêt à travailler avec vous</h3>
-        <p style="font-size:12.5px; color:var(--navy-soft);">Indique au client que nous pouvons prendre la commande et de nous appeler.</p>
+        <p style="font-size:12.5px; color:var(--navy-soft);">Indique au client que nous pouvons prendre la commande, avec un tarif au kg.</p>
         <% if (lastEvents.ready_to_work) { %>
           <div class="sent-note">✅ Envoyé le <%= new Date(lastEvents.ready_to_work).toLocaleString('fr-FR') %></div>
           <form method="POST" action="/clients/<%= client.id %>/ready-to-work">
+            <input type="number" step="0.01" name="pricePerKg" placeholder="Tarif DHS/kg" required>
             <button class="btn small ghost" type="submit">Renvoyer</button>
           </form>
         <% } else { %>
           <form method="POST" action="/clients/<%= client.id %>/ready-to-work">
+            <input type="number" step="0.01" name="pricePerKg" placeholder="Tarif DHS/kg" required>
             <button class="btn green small" type="submit">Envoyer</button>
           </form>
         <% } %>
@@ -155,15 +157,15 @@
             </div>
             <div style="display:flex; gap:16px; margin-top:10px; margin-bottom:4px;">
               <label style="display:flex; align-items:center; gap:6px; font-size:13.5px; cursor:pointer;">
-                <input type="checkbox" id="chkTaxable" checked style="width:16px; height:16px;"> Taxable
+                <input type="checkbox" id="chkTaxable" style="width:16px; height:16px;"> Taxable
               </label>
               <label style="display:flex; align-items:center; gap:6px; font-size:13.5px; cursor:pointer;">
-                <input type="checkbox" id="chkNonTaxable" style="width:16px; height:16px;"> Non Taxable
+                <input type="checkbox" id="chkNonTaxable" checked style="width:16px; height:16px;"> Non Taxable
               </label>
             </div>
             <input type="hidden" name="qte" id="qteHidden">
-            <input type="hidden" name="taxable" id="taxableHidden">
-            <input type="hidden" name="nonTaxable" id="nonTaxableHidden">
+            <input type="hidden" name="montant" id="montantHidden">
+            <input type="hidden" name="taxType" id="taxTypeHidden">
             <label style="font-family:monospace; font-size:11.5px; color:var(--navy-soft); display:block; margin-top:8px; margin-bottom:4px;">LANGUE DE LA FACTURE</label>
             <select name="lang" style="width:100%; padding:9px; border:1px solid var(--line); font-size:14px; margin-bottom:8px;">
               <option value="fr" selected>Français</option>
@@ -183,10 +185,9 @@
                 if (this.checked) chkTaxable.checked = false;
               });
               document.getElementById('orderArrivedForm').addEventListener('submit', function() {
-                var montant = document.getElementById('montantInput').value || '0';
                 document.getElementById('qteHidden').value = document.getElementById('qteInput').value || '1';
-                document.getElementById('taxableHidden').value = chkTaxable.checked ? montant : '0';
-                document.getElementById('nonTaxableHidden').value = chkNonTaxable.checked ? montant : '0';
+                document.getElementById('montantHidden').value = document.getElementById('montantInput').value || '0';
+                document.getElementById('taxTypeHidden').value = chkTaxable.checked ? 'taxable' : 'nonTaxable';
               });
             })();
           </script>

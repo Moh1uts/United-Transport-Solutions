@@ -122,7 +122,8 @@ router.post('/clients/:id/ready-to-work', async (req, res) => {
   const client = await prisma.client.findUnique({ where: { id } });
   if (!client) return res.status(404).send('Not found');
 
-  const result = await notifyClient(client, 'ready_to_work', {});
+  const pricePerKg = req.body.pricePerKg || '—';
+  const result = await notifyClient(client, 'ready_to_work', { pricePerKg });
   await prisma.event.create({ data: { clientId: id, type: 'ready_to_work', messageSent: result.bothOk } });
   res.redirect(`/clients/${id}?flash=Message envoyé`);
 });
@@ -196,8 +197,8 @@ router.post('/clients/:id/order-arrived', async (req, res) => {
   const lang = ['fr', 'en', 'ar'].includes(req.body.lang) ? req.body.lang : 'fr';
   const designation = req.body.designation || undefined;
   const qte = req.body.qte ? parseFloat(req.body.qte) : 1;
-  const taxable = parseFloat(req.body.taxable || '0');
-  const nonTaxable = parseFloat(req.body.nonTaxable || '0');
+  const montant = parseFloat(req.body.montant || '0');
+  const taxType = req.body.taxType === 'taxable' ? 'taxable' : 'nonTaxable';
 
   const year = new Date().getFullYear();
   const countThisYear = await prisma.invoice.count({
@@ -220,8 +221,8 @@ router.post('/clients/:id/order-arrived', async (req, res) => {
     volume: client.volume,
     designation,
     qte,
-    taxable,
-    nonTaxable
+    montant,
+    taxType
   });
 
   await prisma.invoice.create({

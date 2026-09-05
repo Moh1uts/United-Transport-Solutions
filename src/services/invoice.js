@@ -180,8 +180,8 @@ const CURRENCY_WORD = { fr: 'Dirhams', en: 'Dirhams', ar: 'درهم' };
  * @param {string} [params.ice]
  * @param {string} [params.designation] - defaults to "Fret aérien" / "Air freight" / "الشحن الجوي"
  * @param {number} [params.qte] - defaults to 1
- * @param {number} params.taxable - montant soumis à la TVA
- * @param {number} params.nonTaxable - montant hors champ de la TVA
+ * @param {number} params.montant - the amount entered
+ * @param {string} [params.taxType] - 'taxable' | 'nonTaxable', defaults to 'nonTaxable'
  * @param {string} [params.volume]
  * @returns {Buffer}
  */
@@ -194,12 +194,20 @@ function generateInvoiceDocx(params) {
   const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
 
   const dateLocale = lang === 'en' ? 'en-GB' : 'fr-FR';
-  const taxable = params.taxable || 0;
-  const nonTaxable = params.nonTaxable || 0;
+  const taxType = params.taxType === 'taxable' ? 'taxable' : 'nonTaxable';
+  const montant = params.montant || 0;
+  const taxable = taxType === 'taxable' ? montant : 0;
+  const nonTaxable = taxType === 'nonTaxable' ? montant : 0;
   const amountHT = Math.round((taxable + nonTaxable) * 100) / 100;
   const amountTVA = Math.round(taxable * 0.20 * 100) / 100;
   const amountTTC = Math.round((amountHT + amountTVA) * 100) / 100;
   const words = capitalize(numberToWords(Math.round(amountTTC), lang));
+
+  // Totals only appear in the column that matches what was actually
+  // selected, so they line up vertically under the right header instead
+  // of always sitting under "Non Taxable".
+  const inTaxableCol = (v) => (taxType === 'taxable' ? `${v.toFixed(2)} DHS` : '');
+  const inNonTaxableCol = (v) => (taxType === 'nonTaxable' ? `${v.toFixed(2)} DHS` : '');
 
   doc.render({
     invoiceNumber: params.invoiceNumber || '',
@@ -215,11 +223,14 @@ function generateInvoiceDocx(params) {
     ice: params.ice || '—',
     designation: params.designation || DESIGNATION[lang],
     qte: params.qte != null ? String(params.qte) : '1',
-    taxable: `${taxable.toFixed(2)} DHS`,
-    nonTaxable: `${nonTaxable.toFixed(2)} DHS`,
-    amountHT: amountHT.toFixed(2),
-    amountTVA: amountTVA.toFixed(2),
-    amountTTC: amountTTC.toFixed(2),
+    lineTaxable: `${taxable.toFixed(2)} DHS`,
+    lineNonTaxable: `${nonTaxable.toFixed(2)} DHS`,
+    amountHTTaxableCol: inTaxableCol(amountHT),
+    amountHTNonTaxableCol: inNonTaxableCol(amountHT),
+    amountTVATaxableCol: inTaxableCol(amountTVA),
+    amountTVANonTaxableCol: inNonTaxableCol(amountTVA),
+    amountTTCTaxableCol: inTaxableCol(amountTTC),
+    amountTTCNonTaxableCol: inNonTaxableCol(amountTTC),
     amountWords: `${words} ${CURRENCY_WORD[lang]}`
   });
 
