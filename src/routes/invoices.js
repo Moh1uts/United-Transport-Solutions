@@ -19,6 +19,7 @@ router.get('/invoices/:id/download', async (req, res) => {
   const id = parseInt(req.params.id, 10);
   const invoice = await prisma.invoice.findUnique({ where: { id } });
   if (!invoice) return res.status(404).send('Not found');
+  if (!invoice.fileData) return res.status(404).send('Cette ancienne facture (générée avant la mise à jour) n\'a pas de fichier associé.');
 
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
   res.setHeader('Content-Disposition', `attachment; filename="Facture_${invoice.invoiceNumber.replace('/', '-')}.docx"`);

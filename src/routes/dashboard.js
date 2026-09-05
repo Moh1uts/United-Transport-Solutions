@@ -194,9 +194,10 @@ router.post('/clients/:id/order-arrived', async (req, res) => {
   const flightNumber = req.body.flightNumber || client.flightNumber || '';
   const lta = req.body.lta || client.lta || '';
   const lang = ['fr', 'en', 'ar'].includes(req.body.lang) ? req.body.lang : 'fr';
-  const amountHT = parseFloat(req.body.amountHT || '0');
-  const amountTVA = Math.round(amountHT * 0.20 * 100) / 100;
-  const amountTTC = Math.round((amountHT + amountTVA) * 100) / 100;
+  const designation = req.body.designation || undefined;
+  const qte = req.body.qte ? parseFloat(req.body.qte) : 1;
+  const taxable = parseFloat(req.body.taxable || '0');
+  const nonTaxable = parseFloat(req.body.nonTaxable || '0');
 
   const year = new Date().getFullYear();
   const countThisYear = await prisma.invoice.count({
@@ -204,7 +205,7 @@ router.post('/clients/:id/order-arrived', async (req, res) => {
   });
   const invoiceNumber = `${String(countThisYear + 1).padStart(5, '0')}/${String(year).slice(-2)}`;
 
-  const docxBuffer = generateInvoiceDocx({
+  const { buffer: docxBuffer, amountHT, amountTVA, amountTTC } = generateInvoiceDocx({
     lang,
     invoiceNumber,
     date: new Date(),
@@ -217,9 +218,10 @@ router.post('/clients/:id/order-arrived', async (req, res) => {
     weightKg: client.weightKg,
     ice: client.ice,
     volume: client.volume,
-    amountHT,
-    amountTVA,
-    amountTTC
+    designation,
+    qte,
+    taxable,
+    nonTaxable
   });
 
   await prisma.invoice.create({
@@ -257,6 +259,7 @@ router.post('/clients/:id/resend-invoice', async (req, res) => {
     orderBy: { createdAt: 'desc' }
   });
   if (!latestInvoice) return res.redirect(`/clients/${id}?flash=Aucune facture à renvoyer`);
+  if (!latestInvoice.fileData) return res.redirect(`/clients/${id}?flash=Cette ancienne facture n'a pas de fichier - regénérez-en une nouvelle`);
 
   const result = await notifyClient(
     client,
