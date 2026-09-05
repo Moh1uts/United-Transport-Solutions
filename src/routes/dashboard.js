@@ -210,6 +210,7 @@ router.post('/clients/:id/order-arrived', async (req, res) => {
     lang,
     invoiceNumber,
     date: new Date(),
+    clientName: client.name,
     flightNumber,
     provenance: client.city,
     destination: client.destination,

@@ -37,7 +37,7 @@ const COLORS = {
 const LABELS = {
   fr: {
     title: 'FACTURE',
-    subtitle: 'TRANSPORT INTERNATIONAL DE FRET',
+    subtitle: 'UNITED TRANSPORT SOLUTIONS',
     invoiceNumber: 'Facture N° :', date: 'Date :', flightNumber: 'Vol N° :', volume: 'Volume :',
     provenance: 'Provenance :', destination: 'Destination :', nature: 'Nature :', packages: 'Nbre de colis :',
     lta: 'LTA N° :', weight: 'Poids brut :', ice: 'ICE :',
@@ -50,7 +50,7 @@ const LABELS = {
   },
   en: {
     title: 'INVOICE',
-    subtitle: 'INTERNATIONAL FREIGHT TRANSPORT',
+    subtitle: 'UNITED TRANSPORT SOLUTIONS',
     invoiceNumber: 'Invoice No. :', date: 'Date :', flightNumber: 'Flight No. :', volume: 'Volume :',
     provenance: 'Origin :', destination: 'Destination :', nature: 'Nature of goods :', packages: 'No. of packages :',
     lta: 'AWB No. :', weight: 'Gross weight :', ice: 'ICE :',
@@ -186,8 +186,8 @@ function generateInvoicePdf(p) {
   doc.rect(MARGIN, y, seg, barH).fill(COLORS.headerBlue);
   doc.rect(MARGIN + seg, y, seg, barH).fill(COLORS.white);
   doc.rect(MARGIN + seg * 2, y, seg, barH).fill(COLORS.headerGreen);
-  doc.font('Helvetica-Bold').fontSize(7).fillColor(COLORS.subtitleBlue);
-  doc.text(L.subtitle, MARGIN + seg, y + 9, { width: seg, align: 'center' });
+  doc.font('Helvetica-Bold').fontSize(9).fillColor(COLORS.subtitleBlue);
+  doc.text((p.clientName || '').toUpperCase(), MARGIN + seg, y + 8, { width: seg, align: 'center' });
   y += barH + 14;
 
   // --- Info table (5 rows x 2 cols, "Label : value" per cell) ----------
