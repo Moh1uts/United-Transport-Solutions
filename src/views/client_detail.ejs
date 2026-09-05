@@ -18,6 +18,7 @@
     <a href="/invoices">Factures</a>
     <a href="/report">Rapport Mensuel</a>
     <a href="/clients/new">+ Ajouter un client</a>
+    <a href="/monthly-archives" style="position:relative; text-decoration:none; margin-right:10px; font-size:18px;" title="Archives mensuelles">🔔<% if (typeof unreadArchive !== 'undefined' && unreadArchive) { %><span style="position:absolute; top:-2px; right:-2px; width:8px; height:8px; background:#e53935; border-radius:50%; display:inline-block; border:1.5px solid #fff;"></span><% } %></a>
     <form method="POST" action="/logout"><button class="logout">Déconnexion</button></form>
   </div>
 </nav>
@@ -170,7 +171,6 @@
             <select name="lang" style="width:100%; padding:9px; border:1px solid var(--line); font-size:14px; margin-bottom:8px;">
               <option value="fr" selected>Français</option>
               <option value="en">English</option>
-              <option value="ar">العربية</option>
             </select>
             <button class="btn green small" type="submit">Générer la facture et envoyer</button>
           </form>
@@ -286,7 +286,7 @@
             <td><%= inv.invoiceNumber %></td>
             <td><%= new Date(inv.createdAt).toLocaleDateString('fr-FR') %></td>
             <td><%= inv.amountTTC.toFixed(2) %> MAD</td>
-            <td><a href="/invoices/<%= inv.id %>/download">Télécharger le Word</a></td>
+            <td><a href="/invoices/<%= inv.id %>/download">Télécharger</a></td>
           </tr>
         <% }) %>
       </tbody>

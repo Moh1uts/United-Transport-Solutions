@@ -133,3 +133,23 @@ model TruckShipment {
   status          String    @default("in_transit") // "in_transit" | "arrived"
   createdAt       DateTime  @default(now())
 }
+
+// ---------------------------------------------------------------------------
+// One row per month once that month's invoices have been archived into a
+// downloadable zip. Created automatically (see services/monthlyArchive.js)
+// the first time anyone loads the dashboard on/after the 1st of the
+// following month - there's no true cron on Render's free tier, so this is
+// a "lazy" trigger rather than firing at the exact stroke of midnight.
+// `notified` tracks whether the bell has been shown/dismissed yet.
+// ---------------------------------------------------------------------------
+model MonthlyArchive {
+  id           Int      @id @default(autoincrement())
+  year         Int
+  month        Int      // 1-12
+  invoiceCount Int
+  zipData      Bytes
+  notified     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  @@unique([year, month])
+}

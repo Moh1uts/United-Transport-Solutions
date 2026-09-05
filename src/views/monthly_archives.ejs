@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title><%= title %> — United Transport Solutions</title>
+<title>Archives Mensuelles — United Transport Solutions</title>
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
@@ -23,40 +23,23 @@
   </div>
 </nav>
 <main class="wrap">
-  <h1><%= title %> <span class="badge <%= category %>"><%= clients.length %></span></h1>
+  <h1>Archives Mensuelles des Factures</h1>
+  <p style="color:var(--navy-soft); margin-top:-10px;">
+    Le 1er de chaque mois, un dossier ZIP contenant toutes les factures du mois précédent est généré automatiquement ici.
+  </p>
 
-  <% if (clients.length === 0) { %>
-    <div class="card">Aucun client dans cette catégorie pour le moment.</div>
+  <% if (archives.length === 0) { %>
+    <div class="card">Aucune archive disponible pour le moment.</div>
   <% } else { %>
     <table>
-      <thead>
-        <tr>
-          <th>Nom</th>
-          <th>Téléphone</th>
-          <th>Email</th>
-          <th>Trajet</th>
-          <th>Nature</th>
-          <th>Source</th>
-          <% if (category === 'finished') { %><th>Résultat</th><% } %>
-          <th>Reçu le</th>
-        </tr>
-      </thead>
+      <thead><tr><th>Mois</th><th>Nombre de factures</th><th>Générée le</th><th></th></tr></thead>
       <tbody>
-        <% clients.forEach(c => { %>
+        <% archives.forEach(a => { %>
           <tr>
-            <td><a class="row-link" href="/clients/<%= c.id %>"><%= c.name %></a></td>
-            <td><%= c.phone %></td>
-            <td><%= c.email %></td>
-            <td><%= c.city %> → <%= c.destination %></td>
-            <td><%= c.nature %></td>
-            <td><%= c.source %></td>
-            <% if (category === 'finished') { %>
-              <td>
-                <% if (c.outcome === 'success') { %><span class="badge success">Succès</span><% } %>
-                <% if (c.outcome === 'failed') { %><span class="badge failed">Problème</span><% } %>
-              </td>
-            <% } %>
-            <td><%= new Date(c.createdAt).toLocaleDateString('fr-FR') %></td>
+            <td><%= monthNames[a.month - 1] %> <%= a.year %></td>
+            <td><%= a.invoiceCount %></td>
+            <td><%= new Date(a.createdAt).toLocaleDateString('fr-FR') %></td>
+            <td><a class="btn small" href="/monthly-archives/<%= a.id %>/download">Télécharger le ZIP</a></td>
           </tr>
         <% }) %>
       </tbody>

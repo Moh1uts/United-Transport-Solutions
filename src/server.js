@@ -11,6 +11,9 @@ const dashboardRoutes = require('./routes/dashboard');
 const invoiceRoutes = require('./routes/invoices');
 const reportRoutes = require('./routes/report');
 const publicApiRoutes = require('./routes/publicApi');
+const monthlyArchiveRoutes = require('./routes/monthlyArchive');
+const prisma = require('./db');
+const { ensureMonthlyArchiveGenerated } = require('./services/monthlyArchive');
 
 const app = express();
 
@@ -55,8 +58,30 @@ app.use(publicApiRoutes);
 
 // Everything below requires login (enforced inside each router via requireLogin)
 app.use(authRoutes);
+
+// Opportunistic check: is last month's invoice archive ready yet? If not,
+// and last month has genuinely ended, generate it now. Cheap on every
+// request except the very first one after a month rolls over - see
+// services/monthlyArchive.js for why there's no true cron on Render's free
+// tier. res.locals.unreadArchive drives the bell icon shown in every view.
+app.use(async (req, res, next) => {
+  try {
+    await ensureMonthlyArchiveGenerated();
+    const unread = await prisma.monthlyArchive.findFirst({
+      where: { notified: false },
+      orderBy: { createdAt: 'desc' }
+    });
+    res.locals.unreadArchive = unread || null;
+  } catch (err) {
+    console.error('[monthlyArchive check] error:', err);
+    res.locals.unreadArchive = null;
+  }
+  next();
+});
+
 app.use(invoiceRoutes);
 app.use(reportRoutes);
+app.use(monthlyArchiveRoutes);
 app.use(dashboardRoutes);
 
 app.use((req, res) => res.status(404).send('Not found'));

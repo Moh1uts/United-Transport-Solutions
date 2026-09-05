@@ -4,7 +4,7 @@ const router = express.Router();
 const prisma = require('../db');
 const { requireLogin } = require('../middleware/auth');
 const { notifyClient } = require('../services/notify');
-const { generateInvoiceDocx } = require('../services/invoice');
+const { generateInvoicePdf } = require('../services/invoicePdf');
 
 router.use(requireLogin);
 
@@ -194,7 +194,7 @@ router.post('/clients/:id/order-arrived', async (req, res) => {
 
   const flightNumber = req.body.flightNumber || client.flightNumber || '';
   const lta = req.body.lta || client.lta || '';
-  const lang = ['fr', 'en', 'ar'].includes(req.body.lang) ? req.body.lang : 'fr';
+  const lang = req.body.lang === 'en' ? 'en' : 'fr';
   const designation = req.body.designation || undefined;
   const qte = req.body.qte ? parseFloat(req.body.qte) : 1;
   const montant = parseFloat(req.body.montant || '0');
@@ -206,7 +206,7 @@ router.post('/clients/:id/order-arrived', async (req, res) => {
   });
   const invoiceNumber = `${String(countThisYear + 1).padStart(5, '0')}/${String(year).slice(-2)}`;
 
-  const { buffer: docxBuffer, amountHT, amountTVA, amountTTC } = generateInvoiceDocx({
+  const fileBuffer = await generateInvoicePdf({
     lang,
     invoiceNumber,
     date: new Date(),
@@ -224,6 +224,11 @@ router.post('/clients/:id/order-arrived', async (req, res) => {
     montant,
     taxType
   });
+  const taxable = taxType === 'taxable' ? montant : 0;
+  const nonTaxable = taxType === 'nonTaxable' ? montant : 0;
+  const amountHT = Math.round((taxable + nonTaxable) * 100) / 100;
+  const amountTVA = Math.round(taxable * 0.20 * 100) / 100;
+  const amountTTC = Math.round((amountHT + amountTVA) * 100) / 100;
 
   await prisma.invoice.create({
     data: {
@@ -235,7 +240,7 @@ router.post('/clients/:id/order-arrived', async (req, res) => {
       amountHT,
       amountTVA,
       amountTTC,
-      fileData: docxBuffer
+      fileData: fileBuffer
     }
   });
 
@@ -243,7 +248,7 @@ router.post('/clients/:id/order-arrived', async (req, res) => {
     client,
     'order_arrived',
     { invoiceNumber },
-    [{ filename: `Facture_${invoiceNumber.replace('/', '-')}.docx`, content: docxBuffer }]
+    [{ filename: `Facture_${invoiceNumber.replace('/', '-')}.pdf`, content: fileBuffer }]
   );
   await prisma.event.create({ data: { clientId: id, type: 'order_arrived', messageSent: result.bothOk } });
 
@@ -266,7 +271,7 @@ router.post('/clients/:id/resend-invoice', async (req, res) => {
     client,
     'order_arrived',
     { invoiceNumber: latestInvoice.invoiceNumber },
-    [{ filename: `Facture_${latestInvoice.invoiceNumber.replace('/', '-')}.docx`, content: Buffer.from(latestInvoice.fileData) }]
+    [{ filename: `Facture_${latestInvoice.invoiceNumber.replace('/', '-')}.pdf`, content: Buffer.from(latestInvoice.fileData) }]
   );
   await prisma.event.create({ data: { clientId: id, type: 'order_arrived', messageSent: result.bothOk } });
 
