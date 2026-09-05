@@ -41,7 +41,7 @@
             <td><a class="row-link" href="/clients/<%= inv.clientId %>"><%= inv.client.name %></a></td>
             <td><%= new Date(inv.createdAt).toLocaleDateString('fr-FR') %></td>
             <td><%= inv.amountTTC.toFixed(2) %> MAD</td>
-            <td><a href="/invoices/<%= inv.id %>/download">Télécharger le PDF</a></td>
+            <td><a href="/invoices/<%= inv.id %>/download">Télécharger le Word</a></td>
           </tr>
         <% }) %>
       </tbody>

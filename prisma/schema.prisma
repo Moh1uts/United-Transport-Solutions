@@ -100,12 +100,13 @@ model Invoice {
   invoiceNumber  String   @unique
   flightNumber   String?
   lta            String?
+  lang           String   @default("fr") // "fr" | "en" | "ar" - which template was used
   amountHT       Float
   amountTVA      Float
   amountTTC      Float
   currency       String   @default("MAD")
 
-  pdfData        Bytes
+  fileData       Bytes    // the generated .docx invoice file
 
   createdAt      DateTime @default(now())
 }

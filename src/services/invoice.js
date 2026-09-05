@@ -1,41 +1,63 @@
 // src/services/invoice.js
 //
-// Generates a "Facture" PDF matching the layout of the sample invoice
-// (Facture N°, Vol N°, Provenance/Destination, Nature, Nbre de colis,
-// LTA N°, Poids brut, ICE, pricing table, TVA 20%, montant en lettres).
-//
-// Returns a Buffer - the route handler is responsible for saving it to
-// the Invoice table (as `pdfData`) and attaching it to the "order arrived"
-// email.
+// Generates the actual Facture/Invoice document by filling in the real
+// Word templates (assets/templates/facture_{fr,en,ar}.docx) using
+// docxtemplater. Output stays a .docx file - NOT converted to PDF -
+// because:
+//   1. Rendering Arabic script correctly (shaping + right-to-left) needs
+//      a real text-layout engine. This sandbox has no LibreOffice
+//      available, and PDFKit's built-in fonts can't shape Arabic at all.
+//   2. A .docx that Word/LibreOffice/Google Docs opens will always shape
+//      and display the Arabic correctly, since we're just writing
+//      structured text - not rasterizing it ourselves.
+//   Sending a professional Word invoice as an email attachment is a
+//   completely normal business practice.
 
-const PDFDocument = require('pdfkit');
+const fs = require('fs');
+const path = require('path');
+const PizZip = require('pizzip');
+const Docxtemplater = require('docxtemplater');
 
-const UNITS = ['', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf', 'dix',
+const TEMPLATES = {
+  fr: path.join(__dirname, '..', '..', 'assets', 'templates', 'facture_fr.docx'),
+  en: path.join(__dirname, '..', '..', 'assets', 'templates', 'facture_en.docx'),
+  ar: path.join(__dirname, '..', '..', 'assets', 'templates', 'facture_ar.docx')
+};
+
+const DESIGNATION = {
+  fr: 'Fret aérien',
+  en: 'Air freight',
+  ar: 'الشحن الجوي'
+};
+
+// ---------------------------------------------------------------------------
+// Number-to-words, one implementation per language, for the
+// "amount in words" line every invoice ends with.
+// ---------------------------------------------------------------------------
+
+const FR_UNITS = ['', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf', 'dix',
   'onze', 'douze', 'treize', 'quatorze', 'quinze', 'seize', 'dix-sept', 'dix-huit', 'dix-neuf'];
-const TENS = ['', '', 'vingt', 'trente', 'quarante', 'cinquante', 'soixante', 'soixante-dix', 'quatre-vingt', 'quatre-vingt-dix'];
+const FR_TENS = ['', '', 'vingt', 'trente', 'quarante', 'cinquante', 'soixante', 'soixante-dix', 'quatre-vingt', 'quatre-vingt-dix'];
 
-/** Minimal French number-to-words converter, good enough for invoice totals. */
 function numberToFrenchWords(n) {
   n = Math.floor(n);
   if (n === 0) return 'zéro';
 
   function belowThousand(num) {
-    if (num < 20) return UNITS[num];
+    if (num < 20) return FR_UNITS[num];
     if (num < 100) {
       const ten = Math.floor(num / 10);
       const unit = num % 10;
-      if (ten === 7 || ten === 9) {
-        return TENS[ten - 1] + '-' + UNITS[10 + unit];
-      }
-      let word = TENS[ten];
+      if (ten === 7 || ten === 9) return FR_TENS[ten - 1] + '-' + FR_UNITS[10 + unit];
+      let word = FR_TENS[ten];
       if (unit === 1 && ten !== 8) word += '-et-un';
-      else if (unit > 0) word += '-' + UNITS[unit];
+      else if (unit > 0) word += '-' + FR_UNITS[unit];
       if (ten === 8 && unit === 0) word += 's';
       return word;
     }
     const hundred = Math.floor(num / 100);
     const rest = num % 100;
-    let word = hundred === 1 ? 'cent' : UNITS[hundred] + ' cent';
+    let word = hundred === 1 ? 'cent' : FR_UNITS[hundred] + ' cent';
     if (hundred > 1 && rest === 0) word += 's';
     if (rest > 0) word += ' ' + belowThousand(rest);
     return word;
@@ -45,23 +67,109 @@ function numberToFrenchWords(n) {
   const millions = Math.floor(n / 1000000);
   const thousands = Math.floor((n % 1000000) / 1000);
   const rest = n % 1000;
-
   if (millions > 0) parts.push(belowThousand(millions) + (millions > 1 ? ' millions' : ' million'));
   if (thousands > 0) parts.push((thousands === 1 ? '' : belowThousand(thousands) + ' ') + 'mille');
   if (rest > 0) parts.push(belowThousand(rest));
-
   return parts.join(' ') || 'zéro';
+}
+
+const EN_UNITS = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten',
+  'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
+const EN_TENS = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+
+function numberToEnglishWords(n) {
+  n = Math.floor(n);
+  if (n === 0) return 'zero';
+
+  function belowThousand(num) {
+    if (num < 20) return EN_UNITS[num];
+    if (num < 100) {
+      const ten = Math.floor(num / 10);
+      const unit = num % 10;
+      return EN_TENS[ten] + (unit > 0 ? '-' + EN_UNITS[unit] : '');
+    }
+    const hundred = Math.floor(num / 100);
+    const rest = num % 100;
+    return EN_UNITS[hundred] + ' hundred' + (rest > 0 ? ' and ' + belowThousand(rest) : '');
+  }
+
+  const parts = [];
+  const millions = Math.floor(n / 1000000);
+  const thousands = Math.floor((n % 1000000) / 1000);
+  const rest = n % 1000;
+  if (millions > 0) parts.push(belowThousand(millions) + ' million');
+  if (thousands > 0) parts.push(belowThousand(thousands) + ' thousand');
+  if (rest > 0) parts.push(belowThousand(rest));
+  return parts.join(' ') || 'zero';
+}
+
+// Arabic amount-in-words ("تفقيط"). Implements the standard pattern used
+// in financial documents. NOTE: Arabic number/noun grammatical agreement
+// (gender polarity, dual forms) has many edge cases - this covers the
+// common ones well but a native speaker should spot-check real invoices.
+const AR_UNITS = ['', 'واحد', 'اثنان', 'ثلاثة', 'أربعة', 'خمسة', 'ستة', 'سبعة', 'ثمانية', 'تسعة', 'عشرة',
+  'أحد عشر', 'اثنا عشر', 'ثلاثة عشر', 'أربعة عشر', 'خمسة عشر', 'ستة عشر', 'سبعة عشر', 'ثمانية عشر', 'تسعة عشر'];
+const AR_TENS = ['', '', 'عشرون', 'ثلاثون', 'أربعون', 'خمسون', 'ستون', 'سبعون', 'ثمانون', 'تسعون'];
+const AR_HUNDREDS = ['', 'مائة', 'مئتان', 'ثلاثمائة', 'أربعمائة', 'خمسمائة', 'ستمائة', 'سبعمائة', 'ثمانمائة', 'تسعمائة'];
+
+function numberToArabicWords(n) {
+  n = Math.floor(n);
+  if (n === 0) return 'صفر';
+
+  function belowThousand(num) {
+    if (num === 0) return '';
+    if (num < 20) return AR_UNITS[num];
+    if (num < 100) {
+      const ten = Math.floor(num / 10);
+      const unit = num % 10;
+      if (unit === 0) return AR_TENS[ten];
+      return AR_UNITS[unit] + ' و' + AR_TENS[ten];
+    }
+    const hundred = Math.floor(num / 100);
+    const rest = num % 100;
+    let word = AR_HUNDREDS[hundred];
+    if (rest > 0) word += ' و' + belowThousand(rest);
+    return word;
+  }
+
+  const parts = [];
+  const millions = Math.floor(n / 1000000);
+  const thousands = Math.floor((n % 1000000) / 1000);
+  const rest = n % 1000;
+
+  if (millions > 0) {
+    if (millions === 1) parts.push('مليون');
+    else if (millions === 2) parts.push('مليونان');
+    else parts.push(belowThousand(millions) + ' مليون');
+  }
+  if (thousands > 0) {
+    if (thousands === 1) parts.push('ألف');
+    else if (thousands === 2) parts.push('ألفان');
+    else if (thousands <= 10) parts.push(belowThousand(thousands) + ' آلاف');
+    else parts.push(belowThousand(thousands) + ' ألفاً');
+  }
+  if (rest > 0) parts.push(belowThousand(rest));
+
+  return parts.join(' و') || 'صفر';
+}
+
+function numberToWords(n, lang) {
+  if (lang === 'en') return numberToEnglishWords(n);
+  if (lang === 'ar') return numberToArabicWords(n);
+  return numberToFrenchWords(n);
 }
 
 function capitalize(s) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+const CURRENCY_WORD = { fr: 'Dirhams', en: 'Dirhams', ar: 'درهم' };
+
 /**
  * @param {object} params
+ * @param {string} params.lang - 'fr' | 'en' | 'ar', defaults to 'fr'
  * @param {string} params.invoiceNumber
  * @param {Date}   params.date
- * @param {string} params.clientName
  * @param {string} params.flightNumber
  * @param {string} params.provenance
  * @param {string} params.destination
@@ -73,116 +181,39 @@ function capitalize(s) {
  * @param {number} params.amountHT
  * @param {number} params.amountTVA
  * @param {number} params.amountTTC
- * @param {string} [params.currency] - default 'DHS'
- * @returns {Promise<Buffer>}
+ * @param {string} [params.volume]
+ * @returns {Buffer}
  */
-function generateInvoicePdf(params) {
-  const {
-    invoiceNumber, date, clientName, flightNumber, provenance, destination,
-    nature, packages, lta, weightKg, ice, amountHT, amountTVA, amountTTC,
-    currency = 'DHS'
-  } = params;
+function generateInvoiceDocx(params) {
+  const lang = TEMPLATES[params.lang] ? params.lang : 'fr';
+  const templatePath = TEMPLATES[lang];
 
-  return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ size: 'A4', margin: 50 });
-    const chunks = [];
-    doc.on('data', (c) => chunks.push(c));
-    doc.on('end', () => resolve(Buffer.concat(chunks)));
-    doc.on('error', reject);
+  const content = fs.readFileSync(templatePath, 'binary');
+  const zip = new PizZip(content);
+  const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
 
-    const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+  const dateLocale = lang === 'en' ? 'en-GB' : 'fr-FR';
+  const words = capitalize(numberToWords(Math.round(params.amountTTC), lang));
 
-    // Header
-    doc.fontSize(20).font('Helvetica-Bold').text('United Transport Solutions', { align: 'left' });
-    doc.moveDown(0.3);
-    doc.fontSize(9).font('Helvetica').fillColor('#4E657E')
-      .text('Fret aérien — Casablanca, Maroc', { align: 'left' });
-    doc.fillColor('#000000');
-    doc.moveDown(1);
-
-    // Facture N° / Date row
-    doc.fontSize(11).font('Helvetica-Bold');
-    doc.text(`FACTURE N° : ${invoiceNumber}`, { continued: true }).font('Helvetica').text(`     DATE : ${date.toLocaleDateString('fr-FR')}`);
-    doc.moveDown(0.8);
-
-    // Details box
-    const boxTop = doc.y;
-    doc.rect(doc.page.margins.left, boxTop, pageWidth, 130).stroke();
-    doc.fontSize(10).font('Helvetica');
-    let y = boxTop + 10;
-    const lineGap = 16;
-    const col1X = doc.page.margins.left + 12;
-
-    function row(label, value) {
-      doc.font('Helvetica-Bold').text(`${label} : `, col1X, y, { continued: true });
-      doc.font('Helvetica').text(value || '—');
-      y += lineGap;
-    }
-
-    row('CLIENT', clientName);
-    row('VOL N°', flightNumber);
-    row('PROVENANCE', provenance);
-    row('DESTINATION', destination);
-    row('NATURE', nature);
-    row('NBRE DE COLIS', packages != null ? String(packages) : '—');
-    row('LTA N°', lta);
-    row('POIDS BRUT', weightKg != null ? `${weightKg} KG` : '—');
-    row('ICE', ice || '—');
-
-    doc.y = boxTop + 130 + 20;
-
-    // Pricing table
-    const tableTop = doc.y;
-    const colWidths = [pageWidth * 0.4, pageWidth * 0.15, pageWidth * 0.2, pageWidth * 0.25];
-    const headers = ['Désignation', 'Qté', 'Taxable', 'Non Taxable'];
-    let x = doc.page.margins.left;
-
-    doc.font('Helvetica-Bold').fontSize(10);
-    headers.forEach((h, i) => {
-      doc.rect(x, tableTop, colWidths[i], 22).stroke();
-      doc.text(h, x + 4, tableTop + 6, { width: colWidths[i] - 8 });
-      x += colWidths[i];
-    });
-
-    // Row: Fret aérien
-    let rowY = tableTop + 22;
-    x = doc.page.margins.left;
-    const rowValues = ['Fret aérien', '', '', `${amountHT.toFixed(2)} ${currency}`];
-    doc.font('Helvetica');
-    rowValues.forEach((v, i) => {
-      doc.rect(x, rowY, colWidths[i], 22).stroke();
-      doc.text(v, x + 4, rowY + 6, { width: colWidths[i] - 8 });
-      x += colWidths[i];
-    });
-
-    // Totals rows
-    function totalRow(label, value, bold = false) {
-      rowY += 22;
-      x = doc.page.margins.left;
-      const widths = [colWidths[0] + colWidths[1] + colWidths[2], colWidths[3]];
-      doc.font(bold ? 'Helvetica-Bold' : 'Helvetica');
-      doc.rect(x, rowY, widths[0], 22).stroke();
-      doc.text(label, x + 4, rowY + 6);
-      x += widths[0];
-      doc.rect(x, rowY, widths[1], 22).stroke();
-      doc.text(value, x + 4, rowY + 6, { width: widths[1] - 8 });
-    }
-
-    totalRow('TOTAL H.T', `${amountHT.toFixed(2)} ${currency}`, true);
-    totalRow('TVA 20%', `${amountTVA.toFixed(2)} ${currency}`);
-    totalRow('TOTAL TTC', `${amountTTC.toFixed(2)} ${currency}`, true);
-
-    doc.y = rowY + 22 + 30;
-
-    // Amount in words
-    const words = capitalize(numberToFrenchWords(Math.round(amountTTC)));
-    doc.font('Helvetica-Bold').fontSize(10)
-      .text('Arrêtée la présente facture à la somme de :', doc.page.margins.left, doc.y);
-    doc.moveDown(0.3);
-    doc.font('Helvetica-Bold').text(`${words} Dirhams`);
-
-    doc.end();
+  doc.render({
+    invoiceNumber: params.invoiceNumber || '',
+    date: params.date ? params.date.toLocaleDateString(dateLocale) : '',
+    flightNumber: params.flightNumber || '—',
+    volume: params.volume || '—',
+    provenance: params.provenance || '',
+    destination: params.destination || '',
+    nature: params.nature || '',
+    packages: params.packages != null ? String(params.packages) : '—',
+    lta: params.lta || '—',
+    weightIce: `${params.weightKg != null ? params.weightKg + ' kg' : '—'}     ICE : ${params.ice || '—'}`,
+    designation: DESIGNATION[lang],
+    amountHT: params.amountHT.toFixed(2),
+    amountTVA: params.amountTVA.toFixed(2),
+    amountTTC: params.amountTTC.toFixed(2),
+    amountWords: `${words} ${CURRENCY_WORD[lang]}`
   });
+
+  return doc.getZip().generate({ type: 'nodebuffer' });
 }
 
-module.exports = { generateInvoicePdf, numberToFrenchWords };
+module.exports = { generateInvoiceDocx, numberToFrenchWords, numberToEnglishWords, numberToArabicWords };

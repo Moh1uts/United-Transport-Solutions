@@ -20,9 +20,9 @@ router.get('/invoices/:id/download', async (req, res) => {
   const invoice = await prisma.invoice.findUnique({ where: { id } });
   if (!invoice) return res.status(404).send('Not found');
 
-  res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader('Content-Disposition', `attachment; filename="Facture_${invoice.invoiceNumber.replace('/', '-')}.pdf"`);
-  res.send(Buffer.from(invoice.pdfData));
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+  res.setHeader('Content-Disposition', `attachment; filename="Facture_${invoice.invoiceNumber.replace('/', '-')}.docx"`);
+  res.send(Buffer.from(invoice.fileData));
 });
 
 module.exports = router;
