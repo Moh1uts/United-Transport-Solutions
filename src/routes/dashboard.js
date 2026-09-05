@@ -103,7 +103,15 @@ router.get('/clients/:id', async (req, res) => {
     orderBy: { createdAt: 'desc' }
   });
 
-  res.render('client_detail', { client, events, invoices, flash: req.query.flash || null });
+  // For each repeatable action, find the most recent time it was sent, so
+  // the template can show "✅ Envoyé le ..." instead of the primary button
+  // and avoid accidental double-sends.
+  const lastEvents = {};
+  for (const e of events) {
+    if (!lastEvents[e.type]) lastEvents[e.type] = e.createdAt;
+  }
+
+  res.render('client_detail', { client, events, invoices, lastEvents, flash: req.query.flash || null });
 });
 
 // ---------------------------------------------------------------------------
@@ -234,6 +242,28 @@ router.post('/clients/:id/order-arrived', async (req, res) => {
   await prisma.event.create({ data: { clientId: id, type: 'order_arrived', messageSent: result.bothOk } });
 
   res.redirect(`/clients/${id}?flash=Facture générée et envoyée`);
+});
+
+router.post('/clients/:id/resend-invoice', async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const client = await prisma.client.findUnique({ where: { id } });
+  if (!client) return res.status(404).send('Not found');
+
+  const latestInvoice = await prisma.invoice.findFirst({
+    where: { clientId: id },
+    orderBy: { createdAt: 'desc' }
+  });
+  if (!latestInvoice) return res.redirect(`/clients/${id}?flash=Aucune facture à renvoyer`);
+
+  const result = await notifyClient(
+    client,
+    'order_arrived',
+    { invoiceNumber: latestInvoice.invoiceNumber },
+    [{ filename: `Facture_${latestInvoice.invoiceNumber.replace('/', '-')}.pdf`, content: Buffer.from(latestInvoice.pdfData) }]
+  );
+  await prisma.event.create({ data: { clientId: id, type: 'order_arrived', messageSent: result.bothOk } });
+
+  res.redirect(`/clients/${id}?flash=Facture renvoyée`);
 });
 
 router.post('/clients/:id/order-late', async (req, res) => {
