@@ -97,18 +97,25 @@ model Invoice {
   clientId       Int
   client         Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
-  invoiceNumber  String   @unique
+  invoiceNumber  String   // manually renameable; uniqueness enforced only among active (non-archived) invoices
   flightNumber   String?
   lta            String?
+  ice            String?  // manually entered/edited per invoice, defaults from client.ice
   lang           String   @default("fr") // "fr" | "en" | "ar" - which template was used
   amountHT       Float
   amountTVA      Float
   amountTTC      Float
   currency       String   @default("MAD")
 
-  fileData       Bytes?   // the generated .docx invoice file
+  paid           Boolean  @default(false) // tracked per invoice, toggled from "Clients Terminés"
+
+  archived       Boolean  @default(false) // true once superseded by an edited version (kept as a record)
+  replacesInvoiceId Int?  // id of the invoice this one was edited from, if any
+
+  fileData       Bytes?   // the generated PDF invoice file
 
   createdAt      DateTime @default(now())
+  editedAt       DateTime?
 }
 
 // ---------------------------------------------------------------------------

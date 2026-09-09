@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Modifier Facture — United Transport Solutions</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<nav class="topnav">
+  <div class="wrap">
+    <div class="topnav-brand">
+        <img src="/images/logo-white-nav.png" alt="United Transport Solutions">
+    </div>
+    <a href="/potential">Clients Potentiels</a>
+    <a href="/active">Clients Actifs</a>
+    <a href="/refused">Clients Refusés</a>
+    <a href="/finished">Clients Terminés</a>
+    <a href="/invoices">Factures</a>
+    <a href="/report">Rapport Mensuel</a>
+    <a href="/clients/new">+ Ajouter un client</a>
+    <a href="/monthly-archives" style="position:relative; text-decoration:none; margin-right:10px; font-size:18px;" title="Archives mensuelles">🔔<% if (typeof unreadArchive !== 'undefined' && unreadArchive) { %><span style="position:absolute; top:-2px; right:-2px; width:8px; height:8px; background:#e53935; border-radius:50%; display:inline-block; border:1.5px solid #fff;"></span><% } %></a>
+    <form method="POST" action="/logout"><button class="logout">Déconnexion</button></form>
+  </div>
+</nav>
+<main class="wrap">
+  <h1>Modifier la facture <%= invoice.invoiceNumber %></h1>
+  <p style="color:var(--navy-soft); margin-top:-10px;">
+    Client : <a href="/clients/<%= invoice.clientId %>"><%= invoice.client.name %></a> — modifier régénère le PDF ; l'ancienne version est conservée comme archive (non supprimée).
+  </p>
+
+  <form method="POST" action="/invoices/<%= invoice.id %>/edit" id="editInvoiceForm" style="max-width:520px;">
+    <label style="font-family:monospace; font-size:11.5px; color:var(--navy-soft); display:block; margin-bottom:4px;">N° DE FACTURE</label>
+    <input name="invoiceNumber" value="<%= invoice.invoiceNumber %>">
+
+    <label style="font-family:monospace; font-size:11.5px; color:var(--navy-soft); display:block; margin-top:10px; margin-bottom:4px;">NUMÉRO DE VOL</label>
+    <input name="flightNumber" value="<%= invoice.flightNumber || '' %>">
+
+    <label style="font-family:monospace; font-size:11.5px; color:var(--navy-soft); display:block; margin-top:10px; margin-bottom:4px;">NUMÉRO LTA</label>
+    <input name="lta" value="<%= invoice.lta || '' %>">
+
+    <label style="font-family:monospace; font-size:11.5px; color:var(--navy-soft); display:block; margin-top:10px; margin-bottom:4px;">ICE</label>
+    <input name="ice" value="<%= invoice.ice || '' %>">
+
+    <label style="font-family:monospace; font-size:11.5px; color:var(--navy-soft); display:block; margin-top:10px; margin-bottom:4px;">DÉSIGNATION</label>
+    <input name="designation" placeholder="Fret aérien">
+
+    <div style="display:flex; gap:8px; align-items:flex-end; margin-top:10px;">
+      <div style="flex:1;">
+        <label style="font-family:monospace; font-size:11px; color:var(--navy-soft); display:block; margin-bottom:4px;">QTÉ</label>
+        <input type="number" step="1" id="qteInput" value="1">
+      </div>
+      <div style="flex:2;">
+        <label style="font-family:monospace; font-size:11px; color:var(--navy-soft); display:block; margin-bottom:4px;">MONTANT TTC ACTUEL (MAD)</label>
+        <input type="number" step="0.01" id="montantInput" value="<%= invoice.amountTTC.toFixed(2) %>">
+      </div>
+    </div>
+
+    <div style="display:flex; gap:16px; margin-top:10px; margin-bottom:4px;">
+      <label style="display:flex; align-items:center; gap:6px; font-size:13.5px; cursor:pointer;">
+        <input type="checkbox" id="chkTaxable" <%= invoice.amountTVA > 0 ? 'checked' : '' %> style="width:16px; height:16px;"> Taxable
+      </label>
+      <label style="display:flex; align-items:center; gap:6px; font-size:13.5px; cursor:pointer;">
+        <input type="checkbox" id="chkNonTaxable" <%= invoice.amountTVA > 0 ? '' : 'checked' %> style="width:16px; height:16px;"> Non Taxable
+      </label>
+    </div>
+    <input type="hidden" name="qte" id="qteHidden">
+    <input type="hidden" name="montant" id="montantHidden">
+    <input type="hidden" name="taxType" id="taxTypeHidden">
+
+    <label style="font-family:monospace; font-size:11.5px; color:var(--navy-soft); display:block; margin-top:10px; margin-bottom:4px;">LANGUE DE LA FACTURE</label>
+    <select name="lang" style="width:100%; padding:9px; border:1px solid var(--line); font-size:14px; margin-bottom:8px;">
+      <option value="fr" <%= invoice.lang === 'fr' ? 'selected' : '' %>>Français</option>
+      <option value="en" <%= invoice.lang === 'en' ? 'selected' : '' %>>English</option>
+    </select>
+
+    <div style="margin-top:14px; display:flex; gap:10px;">
+      <button class="btn green small" type="submit">Régénérer la facture</button>
+      <a href="/invoices" class="btn small ghost" style="display:inline-block;">Annuler</a>
+    </div>
+  </form>
+
+  <script>
+    (function() {
+      var chkTaxable = document.getElementById('chkTaxable');
+      var chkNonTaxable = document.getElementById('chkNonTaxable');
+      chkTaxable.addEventListener('change', function() {
+        if (this.checked) chkNonTaxable.checked = false;
+      });
+      chkNonTaxable.addEventListener('change', function() {
+        if (this.checked) chkTaxable.checked = false;
+      });
+      document.getElementById('editInvoiceForm').addEventListener('submit', function() {
+        document.getElementById('qteHidden').value = document.getElementById('qteInput').value || '1';
+        document.getElementById('montantHidden').value = document.getElementById('montantInput').value || '0';
+        document.getElementById('taxTypeHidden').value = chkTaxable.checked ? 'taxable' : 'nonTaxable';
+      });
+    })();
+  </script>
+</main>
+</body>
+</html>

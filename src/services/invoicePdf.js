@@ -18,7 +18,8 @@ const fs = require('fs');
 const path = require('path');
 const PDFDocument = require('pdfkit');
 
-const LOGO_PATH = path.join(__dirname, '..', '..', 'assets', 'images', 'uts-logo.png');
+const LOGO_PATH = path.join(__dirname, '..', 'public', 'images', 'logo-color-hires.png');
+const SIGNATURE_PATH = path.join(__dirname, '..', 'public', 'images', 'signature.png');
 
 const COLORS = {
   navy: '#082E67',
@@ -170,7 +171,7 @@ function generateInvoicePdf(p) {
   // --- Logo -----------------------------------------------------------
   if (fs.existsSync(LOGO_PATH)) {
     const logoW = 320;
-    const logoH = logoW * (724 / 2172);
+    const logoH = logoW * (391 / 1300);
     doc.image(LOGO_PATH, (PAGE_W - logoW) / 2, y, { width: logoW, height: logoH });
     y += logoH + 14;
   }
@@ -297,6 +298,14 @@ function generateInvoicePdf(p) {
   doc.text(L.amountWords, MARGIN, y, { continued: true });
   doc.font('Helvetica').fillColor(COLORS.valueBlue).text(`  ${amountWordsText}`);
   y += 24;
+
+  // --- Signature (centered under the price) ----------------------------
+  if (fs.existsSync(SIGNATURE_PATH)) {
+    const sigW = 150;
+    const sigH = sigW * (138 / 400);
+    doc.image(SIGNATURE_PATH, (PAGE_W - sigW) / 2, y, { width: sigW, height: sigH });
+    y += sigH + 6;
+  }
 
   // --- Footer (pinned near bottom) ------------------------------------
   const footerY = 750;

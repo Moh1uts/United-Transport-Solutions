@@ -40,7 +40,8 @@ router.get('/refused', async (req, res) => {
 router.get('/finished', async (req, res) => {
   const clients = await prisma.client.findMany({
     where: { status: 'finished' },
-    orderBy: { createdAt: 'desc' }
+    orderBy: { createdAt: 'desc' },
+    include: { invoices: { where: { archived: false }, orderBy: { createdAt: 'desc' } } }
   });
   res.render('dashboard_list', { clients, category: 'finished', title: 'Clients Terminés' });
 });
@@ -99,7 +100,7 @@ router.get('/clients/:id', async (req, res) => {
     orderBy: { createdAt: 'desc' }
   });
   const invoices = await prisma.invoice.findMany({
-    where: { clientId: id },
+    where: { clientId: id, archived: false },
     orderBy: { createdAt: 'desc' }
   });
 
@@ -199,12 +200,16 @@ router.post('/clients/:id/order-arrived', async (req, res) => {
   const qte = req.body.qte ? parseFloat(req.body.qte) : 1;
   const montant = parseFloat(req.body.montant || '0');
   const taxType = req.body.taxType === 'taxable' ? 'taxable' : 'nonTaxable';
+  const ice = (req.body.ice || '').trim() || client.ice || null;
 
   const year = new Date().getFullYear();
-  const countThisYear = await prisma.invoice.count({
-    where: { createdAt: { gte: new Date(`${year}-01-01`) } }
-  });
-  const invoiceNumber = `${String(countThisYear + 1).padStart(5, '0')}/${String(year).slice(-2)}`;
+  let invoiceNumber = (req.body.invoiceNumber || '').trim();
+  if (!invoiceNumber) {
+    const countThisYear = await prisma.invoice.count({
+      where: { createdAt: { gte: new Date(`${year}-01-01`) } }
+    });
+    invoiceNumber = `${String(countThisYear + 1).padStart(5, '0')}/${String(year).slice(-2)}`;
+  }
 
   const fileBuffer = await generateInvoicePdf({
     lang,
@@ -218,7 +223,7 @@ router.post('/clients/:id/order-arrived', async (req, res) => {
     packages: client.packages,
     lta,
     weightKg: client.weightKg,
-    ice: client.ice,
+    ice,
     volume: client.volume,
     designation,
     qte,
@@ -237,6 +242,7 @@ router.post('/clients/:id/order-arrived', async (req, res) => {
       invoiceNumber,
       flightNumber,
       lta,
+      ice,
       lang,
       amountHT,
       amountTVA,
@@ -262,7 +268,7 @@ router.post('/clients/:id/resend-invoice', async (req, res) => {
   if (!client) return res.status(404).send('Not found');
 
   const latestInvoice = await prisma.invoice.findFirst({
-    where: { clientId: id },
+    where: { clientId: id, archived: false },
     orderBy: { createdAt: 'desc' }
   });
   if (!latestInvoice) return res.redirect(`/clients/${id}?flash=Aucune facture à renvoyer`);

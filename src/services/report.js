@@ -34,12 +34,12 @@ function generateMonthlyReportPdf(data) {
 
     doc.fontSize(11).font('Helvetica-Bold').text('Résumé');
     doc.font('Helvetica').fontSize(10);
-    doc.text(`Commandes livrées (factures émises) : ${invoices.length}`);
+    doc.text(`Envois livrés (factures émises) : ${invoices.length}`);
     doc.text(`Chiffre d'affaires total (TTC) : ${totalRevenue.toFixed(2)} DHS`);
     doc.text(`Envois expédiés : ${counts.shipped}`);
     doc.text(`Retards signalés : ${counts.late}`);
     doc.text(`Problèmes signalés : ${counts.problem}`);
-    doc.text(`Commandes annulées : ${counts.cancelled}`);
+    doc.text(`Envois annulés : ${counts.cancelled}`);
     doc.moveDown(1.5);
 
     doc.font('Helvetica-Bold').fontSize(11).text('Factures émises ce mois');

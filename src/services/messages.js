@@ -47,8 +47,8 @@ const templates = {
   }),
 
   order_received: (data) => ({
-    fr: `Bonjour ${data.name}, nous confirmons la réception de votre commande (par téléphone/message). Elle est en cours de traitement.`,
-    en: `Hello ${data.name}, we confirm receipt of your order (by phone/message). It is now being processed.`,
+    fr: `Bonjour ${data.name}, nous confirmons la réception de votre envoi (par téléphone/message). Il est en cours de traitement.`,
+    en: `Hello ${data.name}, we confirm receipt of your shipment (by phone/message). It is now being processed.`,
     ar: `مرحباً ${data.name}، نؤكد استلام طلبكم (عبر الهاتف/رسالة). جاري العمل على معالجته.`
   }),
 
@@ -77,14 +77,14 @@ const templates = {
   }),
 
   order_cancelled: (data) => ({
-    fr: `Bonjour ${data.name}, votre commande a été annulée. Raison : ${data.reason}. Pour toute question ou contestation, appelez-nous au ${COMPANY_PHONE} ou écrivez à ${COMPANY_EMAIL}.`,
-    en: `Hello ${data.name}, your order has been cancelled. Reason: ${data.reason}. For any question or to dispute this, call us at ${COMPANY_PHONE} or email ${COMPANY_EMAIL}.`,
+    fr: `Bonjour ${data.name}, votre envoi a été annulé. Raison : ${data.reason}. Pour toute question ou contestation, appelez-nous au ${COMPANY_PHONE} ou écrivez à ${COMPANY_EMAIL}.`,
+    en: `Hello ${data.name}, your shipment has been cancelled. Reason: ${data.reason}. For any question or to dispute this, call us at ${COMPANY_PHONE} or email ${COMPANY_EMAIL}.`,
     ar: `مرحباً ${data.name}، تم إلغاء طلبكم. السبب: ${data.reason}. لأي سؤال أو للاعتراض، اتصلوا بنا على ${COMPANY_PHONE} أو راسلونا على ${COMPANY_EMAIL}.`
   }),
 
   invite_back_same: (data) => ({
-    fr: `Bonjour ${data.name}, nous revenons vers vous : les circonstances ont changé et nous sommes désormais en mesure de traiter votre commande. Nous serions ravis de travailler avec vous.`,
-    en: `Hello ${data.name}, reaching back out: circumstances have changed and we're now able to handle your order. We'd be glad to work with you.`,
+    fr: `Bonjour ${data.name}, nous revenons vers vous : les circonstances ont changé et nous sommes désormais en mesure de traiter votre envoi. Nous serions ravis de travailler avec vous.`,
+    en: `Hello ${data.name}, reaching back out: circumstances have changed and we're now able to handle your shipment. We'd be glad to work with you.`,
     ar: `مرحباً ${data.name}، نعاود التواصل معكم: لقد تغيرت الظروف وأصبحنا الآن قادرين على تلبية طلبكم. يسعدنا العمل معكم.`
   }),
 
@@ -101,8 +101,8 @@ const templates = {
   }),
 
   finish_failed: (data) => ({
-    fr: `Bonjour ${data.name}, nous tenons à nous excuser concernant votre commande : ${data.reason}. Nous sommes sincèrement désolés pour la gêne occasionnée et restons à votre disposition au ${COMPANY_PHONE} pour en discuter.`,
-    en: `Hello ${data.name}, we want to apologize regarding your order: ${data.reason}. We're truly sorry for the inconvenience and remain available at ${COMPANY_PHONE} to discuss it.`,
+    fr: `Bonjour ${data.name}, nous tenons à nous excuser concernant votre envoi : ${data.reason}. Nous sommes sincèrement désolés pour la gêne occasionnée et restons à votre disposition au ${COMPANY_PHONE} pour en discuter.`,
+    en: `Hello ${data.name}, we want to apologize regarding your shipment: ${data.reason}. We're truly sorry for the inconvenience and remain available at ${COMPANY_PHONE} to discuss it.`,
     ar: `مرحباً ${data.name}، نود الاعتذار بخصوص طلبكم: ${data.reason}. نأسف بصدق على الإزعاج ونبقى في خدمتكم على ${COMPANY_PHONE} لمناقشة الأمر.`
   })
 };
@@ -134,12 +134,12 @@ const subjects = {
   ready_to_work: 'Nous sommes prêts / We are ready / نحن جاهزون',
   refused: 'Concernant votre demande / About your request / بخصوص طلبكم',
   rewake: 'Toujours disponibles / Still available / لا زلنا متواجدين',
-  order_received: 'Commande reçue / Order received / تم استلام الطلب',
+  order_received: 'Envoi reçu / Shipment received / تم استلام الشحنة',
   order_shipped: 'Envoi expédié / Shipment sent / تم شحن الطلب',
   order_arrived: 'Envoi arrivé - Facture / Shipment arrived - Invoice / وصول الشحنة - الفاتورة',
   order_late: 'Retard de livraison / Shipping delay / تأخير في الشحن',
   order_problem: 'Problème avec votre envoi / Issue with your shipment / مشكل في الشحنة',
-  order_cancelled: 'Commande annulée / Order cancelled / تم إلغاء الطلب',
+  order_cancelled: 'Envoi annulé / Shipment cancelled / تم إلغاء الشحنة',
   invite_back_same: 'Nous revenons vers vous / Reaching back out / نعاود التواصل',
   invite_back_other: 'Un autre service pour vous / Another service for you / خدمة أخرى لكم',
   finish_success: 'Merci ! / Thank you! / شكراً لكم',
