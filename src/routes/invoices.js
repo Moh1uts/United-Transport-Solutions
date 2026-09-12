@@ -29,12 +29,21 @@ router.get('/invoices/:id/download', async (req, res) => {
   res.send(Buffer.from(invoice.fileData));
 });
 
-// Toggle paid/unpaid status for a single invoice (used from "Clients Terminés").
+// Toggle paid/unpaid status for a single invoice, along with how and when it
+// was settled (used from "Clients Terminés").
 router.post('/invoices/:id/toggle-paid', async (req, res) => {
   const id = parseInt(req.params.id, 10);
   const invoice = await prisma.invoice.findUnique({ where: { id } });
   if (!invoice) return res.status(404).send('Not found');
-  await prisma.invoice.update({ where: { id }, data: { paid: !!req.body.paid } });
+  const paid = !!req.body.paid;
+  await prisma.invoice.update({
+    where: { id },
+    data: {
+      paid,
+      paidMode: paid ? (req.body.paidMode || null) : null,
+      paidDate: paid ? (req.body.paidDate ? new Date(req.body.paidDate) : new Date()) : null
+    }
+  });
   if (req.query.back === 'finished') return res.redirect('/finished');
   res.redirect(`/clients/${invoice.clientId}`);
 });
@@ -101,6 +110,18 @@ router.post('/invoices/:id/edit', async (req, res) => {
       data: {
         clientId: oldInvoice.clientId,
         invoiceNumber,
+        fournisseur: oldInvoice.fournisseur,
+        poidsVol: oldInvoice.poidsVol,
+        flatRate: oldInvoice.flatRate,
+        tarifAF: oldInvoice.tarifAF,
+        tarifUTS: oldInvoice.tarifUTS,
+        factComp: oldInvoice.factComp,
+        factNego: oldInvoice.factNego,
+        facturationUTS: oldInvoice.facturationUTS,
+        autreFrais: oldInvoice.autreFrais,
+        netteUTS: oldInvoice.netteUTS,
+        paidMode: oldInvoice.paidMode,
+        paidDate: oldInvoice.paidDate,
         flightNumber,
         lta,
         ice,

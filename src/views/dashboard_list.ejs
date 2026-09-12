@@ -17,6 +17,9 @@
     <a href="/finished">Clients Terminés</a>
     <a href="/invoices">Factures</a>
     <a href="/report">Rapport Mensuel</a>
+    <a href="/rapport-factures">Rapport Factures</a>
+    <a href="/rapport-cash">Rapport Cash</a>
+    <a href="/rapport-recouvrement">Recouvrement</a>
     <a href="/clients/new">+ Ajouter un client</a>
     <a href="/monthly-archives" style="position:relative; text-decoration:none; margin-right:10px; font-size:18px;" title="Archives mensuelles">🔔<% if (typeof unreadArchive !== 'undefined' && unreadArchive) { %><span style="position:absolute; top:-2px; right:-2px; width:8px; height:8px; background:#e53935; border-radius:50%; display:inline-block; border:1.5px solid #fff;"></span><% } %></a>
     <form method="POST" action="/logout"><button class="logout">Déconnexion</button></form>
@@ -59,15 +62,23 @@
                 <% if (!c.invoices || c.invoices.length === 0) { %>
                   <span style="color:var(--navy-soft); font-size:12.5px;">—</span>
                 <% } else { %>
-                  <div style="display:flex; flex-direction:column; gap:6px;">
+                  <div style="display:flex; flex-direction:column; gap:8px;">
                     <% c.invoices.forEach(inv => { %>
-                      <form method="POST" action="/invoices/<%= inv.id %>/toggle-paid?back=finished" style="display:flex; align-items:center; gap:6px; font-size:12.5px;">
+                      <form method="POST" action="/invoices/<%= inv.id %>/toggle-paid?back=finished" style="display:flex; flex-wrap:wrap; align-items:center; gap:6px; font-size:12px;">
                         <span style="font-family:monospace;"><%= inv.invoiceNumber %></span>
                         <span><%= inv.amountTTC.toFixed(2) %> MAD</span>
                         <label style="display:flex; align-items:center; gap:4px; cursor:pointer;">
-                          <input type="checkbox" name="paid" onchange="this.form.submit()" <%= inv.paid ? 'checked' : '' %> style="width:14px; height:14px;">
+                          <input type="checkbox" name="paid" <%= inv.paid ? 'checked' : '' %> style="width:14px; height:14px;">
                           Payé
                         </label>
+                        <select name="paidMode" style="font-size:11.5px; padding:2px;">
+                          <option value="" <%= !inv.paidMode ? 'selected' : '' %>>Mode —</option>
+                          <option value="Cash" <%= inv.paidMode === 'Cash' ? 'selected' : '' %>>Cash</option>
+                          <option value="Chèque" <%= inv.paidMode === 'Chèque' ? 'selected' : '' %>>Chèque</option>
+                          <option value="Virement" <%= inv.paidMode === 'Virement' ? 'selected' : '' %>>Virement</option>
+                        </select>
+                        <input type="date" name="paidDate" value="<%= inv.paidDate ? new Date(inv.paidDate).toISOString().slice(0,10) : '' %>" style="font-size:11.5px; padding:2px;">
+                        <button class="btn small ghost" type="submit" style="padding:2px 8px; font-size:11.5px;">OK</button>
                       </form>
                     <% }) %>
                   </div>

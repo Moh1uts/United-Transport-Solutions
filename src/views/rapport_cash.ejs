@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Rapport Cash — United Transport Solutions</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<nav class="topnav">
+  <div class="wrap">
+    <div class="topnav-brand">
+        <img src="/images/logo-white-nav.png" alt="United Transport Solutions">
+    </div>
+    <a href="/potential">Clients Potentiels</a>
+    <a href="/active">Clients Actifs</a>
+    <a href="/refused">Clients Refusés</a>
+    <a href="/finished">Clients Terminés</a>
+    <a href="/invoices">Factures</a>
+    <a href="/report">Rapport Mensuel</a>
+    <a href="/rapport-factures">Rapport Factures</a>
+    <a href="/rapport-cash">Rapport Cash</a>
+    <a href="/rapport-recouvrement">Recouvrement</a>
+    <a href="/clients/new">+ Ajouter un client</a>
+    <a href="/monthly-archives" style="position:relative; text-decoration:none; margin-right:10px; font-size:18px;" title="Archives mensuelles">🔔<% if (typeof unreadArchive !== 'undefined' && unreadArchive) { %><span style="position:absolute; top:-2px; right:-2px; width:8px; height:8px; background:#e53935; border-radius:50%; display:inline-block; border:1.5px solid #fff;"></span><% } %></a>
+    <form method="POST" action="/logout"><button class="logout">Déconnexion</button></form>
+  </div>
+</nav>
+<main class="wrap">
+  <h1>Rapport Cash</h1>
+  <form method="GET" style="margin-bottom:16px;">
+    <input type="month" name="month" value="<%= monthParam %>" onchange="this.form.submit()">
+  </form>
+  <p style="color:var(--navy-soft); margin-top:-10px;">
+    <%= label %> — Fact Comp (coût) : <%= totals.factComp.toFixed(2) %> MAD · Facturation UTS : <%= totals.facturationUTS.toFixed(2) %> MAD · Nette UTS (profit) : <strong><%= totals.netteUTS.toFixed(2) %> MAD</strong>
+  </p>
+
+  <% if (invoices.length === 0) { %>
+    <div class="card">Aucun envoi ce mois-ci.</div>
+  <% } else { %>
+    <div style="overflow-x:auto;">
+    <table>
+      <thead>
+        <tr>
+          <th>N° Facture</th><th>LTA</th><th>Fournisseur</th><th>Date</th><th>Client</th>
+          <th>Tarif AF</th><th>Tarif UTS</th><th>Fact Comp</th><th>Fact Nego/Autre</th>
+          <th>Facturation UTS</th><th>Nette UTS</th><th>Autre Frais</th>
+          <th>Statut</th><th>Mode</th><th>Date Régl.</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% invoices.forEach(inv => { %>
+          <tr>
+            <td><%= inv.invoiceNumber %></td>
+            <td><%= inv.lta || '—' %></td>
+            <td><%= inv.fournisseur || '—' %></td>
+            <td><%= new Date(inv.createdAt).toLocaleDateString('fr-FR') %></td>
+            <td><a class="row-link" href="/clients/<%= inv.clientId %>"><%= inv.client.name %></a></td>
+            <td><%= inv.flatRate ? '—' : (inv.tarifAF != null ? inv.tarifAF : '—') %></td>
+            <td><%= inv.flatRate ? '—' : (inv.tarifUTS != null ? inv.tarifUTS : '—') %></td>
+            <td><%= inv.factComp != null ? inv.factComp.toFixed(2) : '—' %></td>
+            <td><%= inv.factNego != null ? inv.factNego.toFixed(2) : '—' %></td>
+            <td><%= (inv.facturationUTS != null ? inv.facturationUTS : inv.amountTTC).toFixed(2) %></td>
+            <td><%= inv.netteUTS != null ? inv.netteUTS.toFixed(2) : '—' %></td>
+            <td><%= inv.autreFrais ? inv.autreFrais.toFixed(2) : '—' %></td>
+            <td><%= inv.paid ? 'REGLÉ' : 'EN ATTENTE' %></td>
+            <td><%= inv.paidMode || '—' %></td>
+            <td><%= inv.paidDate ? new Date(inv.paidDate).toLocaleDateString('fr-FR') : '—' %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+    </div>
+  <% } %>
+</main>
+</body>
+</html>

@@ -108,4 +108,50 @@ router.post('/report/truck/:id/arrivee', async (req, res) => {
   res.redirect('/report');
 });
 
+// ---------------------------------------------------------------------------
+// Rapport Factures - simple monthly list of invoices + clients
+// ---------------------------------------------------------------------------
+router.get('/rapport-factures', async (req, res) => {
+  const { start, end, label, monthParam } = monthBounds(req.query.month);
+  const invoices = await prisma.invoice.findMany({
+    where: { createdAt: { gte: start, lt: end }, archived: false },
+    include: { client: true },
+    orderBy: { createdAt: 'asc' }
+  });
+  const total = invoices.reduce((sum, i) => sum + i.amountTTC, 0);
+  res.render('rapport_factures', { invoices, total, label, monthParam });
+});
+
+// ---------------------------------------------------------------------------
+// Rapport Cash - monthly cost/margin breakdown per shipment
+// ---------------------------------------------------------------------------
+router.get('/rapport-cash', async (req, res) => {
+  const { start, end, label, monthParam } = monthBounds(req.query.month);
+  const invoices = await prisma.invoice.findMany({
+    where: { createdAt: { gte: start, lt: end }, archived: false, isPlaceholder: false },
+    include: { client: true },
+    orderBy: { createdAt: 'asc' }
+  });
+  const totals = invoices.reduce((acc, i) => {
+    acc.factComp += i.factComp || 0;
+    acc.facturationUTS += i.facturationUTS || i.amountTTC || 0;
+    acc.netteUTS += i.netteUTS || 0;
+    return acc;
+  }, { factComp: 0, facturationUTS: 0, netteUTS: 0 });
+  res.render('rapport_cash', { invoices, totals, label, monthParam });
+});
+
+// ---------------------------------------------------------------------------
+// Rapport Recouvrement - everyone who hasn't paid yet, not split by month
+// ---------------------------------------------------------------------------
+router.get('/rapport-recouvrement', async (req, res) => {
+  const invoices = await prisma.invoice.findMany({
+    where: { archived: false, paid: false },
+    include: { client: true },
+    orderBy: { createdAt: 'asc' }
+  });
+  const total = invoices.reduce((sum, i) => sum + (i.facturationUTS || i.amountTTC || 0), 0);
+  res.render('rapport_recouvrement', { invoices, total });
+});
+
 module.exports = router;

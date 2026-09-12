@@ -202,6 +202,23 @@ router.post('/clients/:id/order-arrived', async (req, res) => {
   const taxType = req.body.taxType === 'taxable' ? 'taxable' : 'nonTaxable';
   const ice = (req.body.ice || '').trim() || client.ice || null;
 
+  // Rapport Cash / margin tracking fields - all optional, calculated client-side
+  // and re-derived here since the client-side numbers are just for display.
+  const fournisseur = (req.body.fournisseur || '').trim() || null;
+  const poidsVol = req.body.poidsVol ? parseFloat(req.body.poidsVol) : null;
+  const flatRate = req.body.flatRate === '1';
+  const tarifAF = req.body.tarifAF ? parseFloat(req.body.tarifAF) : null;
+  const tarifUTS = req.body.tarifUTS ? parseFloat(req.body.tarifUTS) : null;
+  const autreFrais = req.body.autreFrais ? parseFloat(req.body.autreFrais) : 0;
+  const poidsTaxable = Math.max(client.weightKg || 0, poidsVol || 0);
+  const factComp = flatRate
+    ? parseFloat(req.body.factComp || '0')
+    : Math.round((tarifAF || 0) * poidsTaxable * 100) / 100;
+  const facturationUTS = flatRate
+    ? parseFloat(req.body.facturationUTS || '0')
+    : Math.round((tarifUTS || 0) * poidsTaxable * 100) / 100;
+  const netteUTS = Math.round((facturationUTS - factComp - autreFrais) * 100) / 100;
+
   const year = new Date().getFullYear();
   let invoiceNumber = (req.body.invoiceNumber || '').trim();
   if (!invoiceNumber) {
@@ -247,6 +264,15 @@ router.post('/clients/:id/order-arrived', async (req, res) => {
       amountHT,
       amountTVA,
       amountTTC,
+      fournisseur,
+      poidsVol,
+      flatRate,
+      tarifAF,
+      tarifUTS,
+      factComp,
+      facturationUTS,
+      autreFrais,
+      netteUTS,
       fileData: fileBuffer
     }
   });
@@ -260,6 +286,38 @@ router.post('/clients/:id/order-arrived', async (req, res) => {
   await prisma.event.create({ data: { clientId: id, type: 'order_arrived', messageSent: result.bothOk } });
 
   res.redirect(`/clients/${id}?flash=Facture générée et envoyée`);
+});
+
+// A shipment that's already owed money before a real invoice was ever made
+// ("Sans Facture" in the old spreadsheet). Creates a lightweight Invoice
+// record with no PDF, so it still shows up in Clients Terminés and
+// Recouvrement like a normal invoice. Use "Modifier" later to turn it into
+// a real invoice once one is actually generated.
+router.post('/clients/:id/add-debt', async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const client = await prisma.client.findUnique({ where: { id } });
+  if (!client) return res.status(404).send('Not found');
+
+  const lta = req.body.lta || client.lta || '';
+  const montant = parseFloat(req.body.montant || '0');
+  const note = (req.body.note || '').trim() || null;
+
+  await prisma.invoice.create({
+    data: {
+      clientId: id,
+      invoiceNumber: 'S/F',
+      lta,
+      amountHT: montant,
+      amountTVA: 0,
+      amountTTC: montant,
+      facturationUTS: montant,
+      isPlaceholder: true,
+      notes: note,
+      fileData: null
+    }
+  });
+
+  res.redirect(`/clients/${id}?flash=Créance sans facture enregistrée${note ? ' — ' + note : ''}`);
 });
 
 router.post('/clients/:id/resend-invoice', async (req, res) => {

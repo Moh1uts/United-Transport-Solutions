@@ -107,12 +107,31 @@ model Invoice {
   amountTTC      Float
   currency       String   @default("MAD")
 
+  // --- Rapport Cash / margin tracking (all optional - only used when filled in) ---
+  fournisseur    String?  // airline / supplier
+  poidsVol       Float?   // volumetric weight, compared against client.weightKg to get the billable weight
+  flatRate       Boolean  @default(false) // true = tarifAF/tarifUTS are ignored, factComp/facturationUTS were typed in directly
+  tarifAF        Float?   // airline's rate per kg
+  tarifUTS       Float?   // your rate per kg charged to the client
+  factComp       Float?   // = tarifAF x billable weight (auto-calculated, editable)
+  factNego       Float?   // the airline's real invoiced amount, filled in later if it differs from factComp
+  facturationUTS Float?   // = tarifUTS x billable weight (auto-calculated) - mirrors amountTTC, kept for the report
+  autreFrais     Float?   // extra costs (storage, customs, etc.)
+  netteUTS       Float?   // = facturationUTS - (factNego or factComp) - autreFrais (auto-calculated)
+
+  // --- Payment settlement (filled in once the client actually pays) ---
   paid           Boolean  @default(false) // tracked per invoice, toggled from "Clients Terminés"
+  paidMode       String?  // "Cash" | "Chèque" | "Virement"
+  paidDate       DateTime?
+
+  // --- "Sans Facture" placeholder debts (owed before a real invoice exists) ---
+  isPlaceholder  Boolean  @default(false)
+  notes          String?  // e.g. "en attente de facture"
 
   archived       Boolean  @default(false) // true once superseded by an edited version (kept as a record)
   replacesInvoiceId Int?  // id of the invoice this one was edited from, if any
 
-  fileData       Bytes?   // the generated PDF invoice file
+  fileData       Bytes?   // the generated PDF invoice file (null for placeholder debts)
 
   createdAt      DateTime @default(now())
   editedAt       DateTime?

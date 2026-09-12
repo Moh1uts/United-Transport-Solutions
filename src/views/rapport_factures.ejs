@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Archives Mensuelles — United Transport Solutions</title>
+<title>Rapport Factures — United Transport Solutions</title>
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
@@ -26,23 +26,25 @@
   </div>
 </nav>
 <main class="wrap">
-  <h1>Archives Mensuelles des Factures</h1>
-  <p style="color:var(--navy-soft); margin-top:-10px;">
-    Le 1er de chaque mois, un dossier ZIP contenant toutes les factures du mois précédent est généré automatiquement ici.
-  </p>
+  <h1>Rapport Factures</h1>
+  <form method="GET" style="margin-bottom:16px;">
+    <input type="month" name="month" value="<%= monthParam %>" onchange="this.form.submit()">
+  </form>
+  <p style="color:var(--navy-soft); margin-top:-10px;"><%= label %> — <%= invoices.length %> facture(s), <%= total.toFixed(2) %> MAD au total</p>
 
-  <% if (archives.length === 0) { %>
-    <div class="card">Aucune archive disponible pour le moment.</div>
+  <% if (invoices.length === 0) { %>
+    <div class="card">Aucune facture ce mois-ci.</div>
   <% } else { %>
     <table>
-      <thead><tr><th>Mois</th><th>Nombre de factures</th><th>Générée le</th><th></th></tr></thead>
+      <thead><tr><th>N° Facture</th><th>Date</th><th>Client</th><th>Montant TTC</th><th>LTA</th></tr></thead>
       <tbody>
-        <% archives.forEach(a => { %>
+        <% invoices.forEach(inv => { %>
           <tr>
-            <td><%= monthNames[a.month - 1] %> <%= a.year %></td>
-            <td><%= a.invoiceCount %></td>
-            <td><%= new Date(a.createdAt).toLocaleDateString('fr-FR') %></td>
-            <td><a class="btn small" href="/monthly-archives/<%= a.id %>/download">Télécharger le ZIP</a></td>
+            <td><%= inv.invoiceNumber %></td>
+            <td><%= new Date(inv.createdAt).toLocaleDateString('fr-FR') %></td>
+            <td><a class="row-link" href="/clients/<%= inv.clientId %>"><%= inv.client.name %></a></td>
+            <td><%= inv.amountTTC.toFixed(2) %> MAD</td>
+            <td><%= inv.lta || '—' %></td>
           </tr>
         <% }) %>
       </tbody>

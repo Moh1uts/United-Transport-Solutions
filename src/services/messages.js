@@ -107,10 +107,12 @@ const templates = {
   })
 };
 
-/** Builds the SMS body: FR, then EN, then AR, separated by a blank line. */
+/** Builds the SMS body: French only. SMS is billed per segment and any Arabic
+ * text forces expensive Unicode encoding (~67 chars/segment instead of ~160),
+ * so the 3-language version is reserved for email, where length is free. */
 function composeSms(type, data) {
   const t = templates[type](data);
-  return [t.fr, t.en, t.ar].join('\n\n');
+  return t.fr;
 }
 
 /** Builds a simple HTML email body with the same 3-language order. */
