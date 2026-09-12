@@ -4,6 +4,7 @@ const router = express.Router();
 const prisma = require('../db');
 const { requireLogin } = require('../middleware/auth');
 const { generateMonthlyReportPdf } = require('../services/report');
+const { generateFacturesExcel, generateCashExcel, generateRecouvrementExcel } = require('../services/excelReports');
 
 router.use(requireLogin);
 
@@ -111,27 +112,46 @@ router.post('/report/truck/:id/arrivee', async (req, res) => {
 // ---------------------------------------------------------------------------
 // Rapport Factures - simple monthly list of invoices + clients
 // ---------------------------------------------------------------------------
-router.get('/rapport-factures', async (req, res) => {
-  const { start, end, label, monthParam } = monthBounds(req.query.month);
-  const invoices = await prisma.invoice.findMany({
+async function fetchFacturesInvoices(monthParam) {
+  const { start, end } = monthBounds(monthParam);
+  return prisma.invoice.findMany({
     where: { createdAt: { gte: start, lt: end }, archived: false },
     include: { client: true },
     orderBy: { createdAt: 'asc' }
   });
+}
+
+router.get('/rapport-factures', async (req, res) => {
+  const { label, monthParam } = monthBounds(req.query.month);
+  const invoices = await fetchFacturesInvoices(req.query.month);
   const total = invoices.reduce((sum, i) => sum + i.amountTTC, 0);
   res.render('rapport_factures', { invoices, total, label, monthParam });
 });
 
+router.get('/rapport-factures/download', async (req, res) => {
+  const { label, monthParam } = monthBounds(req.query.month);
+  const invoices = await fetchFacturesInvoices(req.query.month);
+  const buffer = await generateFacturesExcel(invoices, label);
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', `attachment; filename="Rapport_Factures_${monthParam}.xlsx"`);
+  res.send(buffer);
+});
+
 // ---------------------------------------------------------------------------
-// Rapport Cash - monthly cost/margin breakdown per shipment
+// Rapport Cash - monthly cost/margin breakdown, cash payments only
 // ---------------------------------------------------------------------------
-router.get('/rapport-cash', async (req, res) => {
-  const { start, end, label, monthParam } = monthBounds(req.query.month);
-  const invoices = await prisma.invoice.findMany({
-    where: { createdAt: { gte: start, lt: end }, archived: false, isPlaceholder: false },
+async function fetchCashInvoices(monthParam) {
+  const { start, end } = monthBounds(monthParam);
+  return prisma.invoice.findMany({
+    where: { createdAt: { gte: start, lt: end }, archived: false, isPlaceholder: false, paid: true, paidMode: 'Cash' },
     include: { client: true },
     orderBy: { createdAt: 'asc' }
   });
+}
+
+router.get('/rapport-cash', async (req, res) => {
+  const { label, monthParam } = monthBounds(req.query.month);
+  const invoices = await fetchCashInvoices(req.query.month);
   const totals = invoices.reduce((acc, i) => {
     acc.factComp += i.factComp || 0;
     acc.facturationUTS += i.facturationUTS || i.amountTTC || 0;
@@ -141,17 +161,38 @@ router.get('/rapport-cash', async (req, res) => {
   res.render('rapport_cash', { invoices, totals, label, monthParam });
 });
 
+router.get('/rapport-cash/download', async (req, res) => {
+  const { label, monthParam } = monthBounds(req.query.month);
+  const invoices = await fetchCashInvoices(req.query.month);
+  const buffer = await generateCashExcel(invoices, label);
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', `attachment; filename="Rapport_Cash_${monthParam}.xlsx"`);
+  res.send(buffer);
+});
+
 // ---------------------------------------------------------------------------
 // Rapport Recouvrement - everyone who hasn't paid yet, not split by month
 // ---------------------------------------------------------------------------
-router.get('/rapport-recouvrement', async (req, res) => {
-  const invoices = await prisma.invoice.findMany({
+async function fetchRecouvrementInvoices() {
+  return prisma.invoice.findMany({
     where: { archived: false, paid: false },
     include: { client: true },
     orderBy: { createdAt: 'asc' }
   });
+}
+
+router.get('/rapport-recouvrement', async (req, res) => {
+  const invoices = await fetchRecouvrementInvoices();
   const total = invoices.reduce((sum, i) => sum + (i.facturationUTS || i.amountTTC || 0), 0);
   res.render('rapport_recouvrement', { invoices, total });
+});
+
+router.get('/rapport-recouvrement/download', async (req, res) => {
+  const invoices = await fetchRecouvrementInvoices();
+  const buffer = await generateRecouvrementExcel(invoices);
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', `attachment; filename="Rapport_Recouvrement.xlsx"`);
+  res.send(buffer);
 });
 
 module.exports = router;

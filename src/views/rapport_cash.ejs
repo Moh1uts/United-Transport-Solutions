@@ -16,10 +16,15 @@
     <a href="/refused">Clients Refusés</a>
     <a href="/finished">Clients Terminés</a>
     <a href="/invoices">Factures</a>
-    <a href="/report">Rapport Mensuel</a>
-    <a href="/rapport-factures">Rapport Factures</a>
-    <a href="/rapport-cash">Rapport Cash</a>
-    <a href="/rapport-recouvrement">Recouvrement</a>
+    <details class="nav-dropdown">
+      <summary>Rapports</summary>
+      <div class="nav-dropdown-menu">
+        <a href="/report">Rapport Mensuel</a>
+        <a href="/rapport-factures">Rapport Factures</a>
+        <a href="/rapport-cash">Rapport Cash</a>
+        <a href="/rapport-recouvrement">Recouvrement</a>
+      </div>
+    </details>
     <a href="/clients/new">+ Ajouter un client</a>
     <a href="/settings" style="opacity:0.6;">Réglages</a>
     <a href="/monthly-archives" style="position:relative; text-decoration:none; margin-right:10px; font-size:18px;" title="Archives mensuelles">🔔<% if (typeof unreadArchive !== 'undefined' && unreadArchive) { %><span style="position:absolute; top:-2px; right:-2px; width:8px; height:8px; background:#e53935; border-radius:50%; display:inline-block; border:1.5px solid #fff;"></span><% } %></a>
@@ -31,21 +36,21 @@
   <form method="GET" style="margin-bottom:16px;">
     <input type="month" name="month" value="<%= monthParam %>" onchange="this.form.submit()">
   </form>
-  <p style="color:var(--navy-soft); margin-top:-10px;">
-    <%= label %> — Fact Comp (coût) : <%= totals.factComp.toFixed(2) %> MAD · Facturation UTS : <%= totals.facturationUTS.toFixed(2) %> MAD · Nette UTS (profit) : <strong><%= totals.netteUTS.toFixed(2) %> MAD</strong>
-  </p>
+  <a class="btn small ghost" href="/rapport-cash/download?month=<%= monthParam %>" style="display:inline-block; margin-bottom:12px;">Télécharger en Excel</a>
+  <p style="color:var(--navy-soft); margin-top:-10px;">Paiements en espèces uniquement — <%= label %> — Fact Comp (coût) : <%= totals.factComp.toFixed(2) %> MAD · Facturation UTS : <%= totals.facturationUTS.toFixed(2) %> MAD · Nette UTS (profit) : <strong><%= totals.netteUTS.toFixed(2) %> MAD</strong></p>
 
   <% if (invoices.length === 0) { %>
-    <div class="card">Aucun envoi ce mois-ci.</div>
+    <div class="card">Aucun paiement en espèces ce mois-ci.</div>
   <% } else { %>
     <div style="overflow-x:auto;">
     <table>
       <thead>
         <tr>
-          <th>N° Facture</th><th>LTA</th><th>Fournisseur</th><th>Date</th><th>Client</th>
+          <th>Ordre Facture</th><th>LTA</th><th>Fournisseur</th><th>Date</th><th>Colis</th>
+          <th>Poids Kg</th><th>Poids Vol</th><th>Nature</th><th>Dest</th><th>Client</th>
           <th>Tarif AF</th><th>Tarif UTS</th><th>Fact Comp</th><th>Fact Nego/Autre</th>
           <th>Facturation UTS</th><th>Nette UTS</th><th>Autre Frais</th>
-          <th>Statut</th><th>Mode</th><th>Date Régl.</th>
+          <th>Statut</th><th>Mode Régl.</th><th>Date Régl.</th>
         </tr>
       </thead>
       <tbody>
@@ -55,6 +60,11 @@
             <td><%= inv.lta || '—' %></td>
             <td><%= inv.fournisseur || '—' %></td>
             <td><%= new Date(inv.createdAt).toLocaleDateString('fr-FR') %></td>
+            <td><%= inv.client.packages != null ? inv.client.packages : '—' %></td>
+            <td><%= inv.client.weightKg != null ? inv.client.weightKg : '—' %></td>
+            <td><%= inv.poidsVol != null ? inv.poidsVol : '—' %></td>
+            <td><%= inv.client.nature || '—' %></td>
+            <td><%= inv.client.destination || '—' %></td>
             <td><a class="row-link" href="/clients/<%= inv.clientId %>"><%= inv.client.name %></a></td>
             <td><%= inv.flatRate ? '—' : (inv.tarifAF != null ? inv.tarifAF : '—') %></td>
             <td><%= inv.flatRate ? '—' : (inv.tarifUTS != null ? inv.tarifUTS : '—') %></td>

@@ -16,10 +16,15 @@
     <a href="/refused">Clients Refusés</a>
     <a href="/finished">Clients Terminés</a>
     <a href="/invoices">Factures</a>
-    <a href="/report">Rapport Mensuel</a>
-    <a href="/rapport-factures">Rapport Factures</a>
-    <a href="/rapport-cash">Rapport Cash</a>
-    <a href="/rapport-recouvrement">Recouvrement</a>
+    <details class="nav-dropdown">
+      <summary>Rapports</summary>
+      <div class="nav-dropdown-menu">
+        <a href="/report">Rapport Mensuel</a>
+        <a href="/rapport-factures">Rapport Factures</a>
+        <a href="/rapport-cash">Rapport Cash</a>
+        <a href="/rapport-recouvrement">Recouvrement</a>
+      </div>
+    </details>
     <a href="/clients/new">+ Ajouter un client</a>
     <a href="/settings" style="opacity:0.6;">Réglages</a>
     <a href="/monthly-archives" style="position:relative; text-decoration:none; margin-right:10px; font-size:18px;" title="Archives mensuelles">🔔<% if (typeof unreadArchive !== 'undefined' && unreadArchive) { %><span style="position:absolute; top:-2px; right:-2px; width:8px; height:8px; background:#e53935; border-radius:50%; display:inline-block; border:1.5px solid #fff;"></span><% } %></a>
@@ -44,6 +49,77 @@
 
     <label style="font-family:monospace; font-size:11.5px; color:var(--navy-soft); display:block; margin-top:10px; margin-bottom:4px;">ICE</label>
     <input name="ice" value="<%= invoice.ice || '' %>">
+
+    <hr style="margin:16px 0; border:none; border-top:1px solid var(--line);">
+    <p style="font-size:12px; color:var(--navy-soft); margin:0 0 8px;">Rapport Cash — coût, marge, règlement</p>
+
+    <label style="font-family:monospace; font-size:11.5px; color:var(--navy-soft); display:block; margin-bottom:4px;">FOURNISSEUR</label>
+    <input name="fournisseur" id="fournisseurInput" value="<%= invoice.fournisseur || '' %>">
+
+    <label style="font-family:monospace; font-size:11.5px; color:var(--navy-soft); display:block; margin-top:8px; margin-bottom:4px;">POIDS VOLUMÉTRIQUE (kg)</label>
+    <input type="number" step="0.01" id="poidsVolInput" value="<%= invoice.poidsVol != null ? invoice.poidsVol : '' %>">
+
+    <label style="display:flex; align-items:center; gap:6px; font-size:13.5px; cursor:pointer; margin-top:10px;">
+      <input type="checkbox" id="chkFlatRate" <%= invoice.flatRate ? 'checked' : '' %> style="width:16px; height:16px;"> Montant fixe négocié
+    </label>
+
+    <div id="perKgFields" style="display:flex; gap:8px; align-items:flex-end; margin-top:6px;">
+      <div style="flex:1;">
+        <label style="font-family:monospace; font-size:11px; color:var(--navy-soft); display:block; margin-bottom:4px;">TARIF AF (DHS/kg)</label>
+        <input type="number" step="0.01" id="tarifAFInput" value="<%= invoice.tarifAF != null ? invoice.tarifAF : '' %>">
+      </div>
+      <div style="flex:1;">
+        <label style="font-family:monospace; font-size:11px; color:var(--navy-soft); display:block; margin-bottom:4px;">TARIF UTS (DHS/kg)</label>
+        <input type="number" step="0.01" id="tarifUTSInput" value="<%= invoice.tarifUTS != null ? invoice.tarifUTS : '' %>">
+      </div>
+    </div>
+    <div id="flatFields" style="display:none; gap:8px; align-items:flex-end; margin-top:6px;">
+      <div style="flex:1;">
+        <label style="font-family:monospace; font-size:11px; color:var(--navy-soft); display:block; margin-bottom:4px;">FACT COMP (coût, MAD)</label>
+        <input type="number" step="0.01" id="factCompFlatInput" value="<%= invoice.factComp != null ? invoice.factComp : '' %>">
+      </div>
+      <div style="flex:1;">
+        <label style="font-family:monospace; font-size:11px; color:var(--navy-soft); display:block; margin-bottom:4px;">FACTURATION UTS (MAD)</label>
+        <input type="number" step="0.01" id="facturationUTSFlatInput" value="<%= invoice.facturationUTS != null ? invoice.facturationUTS : '' %>">
+      </div>
+    </div>
+
+    <label style="font-family:monospace; font-size:11px; color:var(--navy-soft); display:block; margin-top:8px; margin-bottom:4px;">FACT NEGO/AUTRE (facture réelle du transporteur, si différente)</label>
+    <input type="number" step="0.01" name="factNego" value="<%= invoice.factNego != null ? invoice.factNego : '' %>">
+
+    <label style="font-family:monospace; font-size:11px; color:var(--navy-soft); display:block; margin-top:8px; margin-bottom:4px;">AUTRE FRAIS (MAD)</label>
+    <input type="number" step="0.01" id="autreFraisInput" value="<%= invoice.autreFrais || '' %>">
+
+    <div style="background:var(--bg-soft, #f4f6f9); border:1px solid var(--line); border-radius:6px; padding:10px; margin-top:10px; font-size:13px; line-height:1.8;">
+      <div>Fact Comp (coût) : <strong id="calcFactComp">0.00</strong> MAD</div>
+      <div>Facturation UTS : <strong id="calcFacturationUTS">0.00</strong> MAD</div>
+      <div>Nette UTS (profit) : <strong id="calcNetteUTS">0.00</strong> MAD</div>
+    </div>
+
+    <input type="hidden" name="poidsVol" id="poidsVolHidden">
+    <input type="hidden" name="flatRate" id="flatRateHidden">
+    <input type="hidden" name="tarifAF" id="tarifAFHidden">
+    <input type="hidden" name="tarifUTS" id="tarifUTSHidden">
+    <input type="hidden" name="factComp" id="factCompHidden">
+    <input type="hidden" name="facturationUTS" id="facturationUTSHidden">
+    <input type="hidden" name="autreFrais" id="autreFraisHidden">
+    <input type="hidden" name="netteUTS" id="netteUTSHidden">
+
+    <hr style="margin:16px 0; border:none; border-top:1px solid var(--line);">
+    <p style="font-size:12px; color:var(--navy-soft); margin:0 0 8px;">Règlement</p>
+    <label style="display:flex; align-items:center; gap:6px; font-size:13.5px; cursor:pointer;">
+      <input type="checkbox" name="paid" <%= invoice.paid ? 'checked' : '' %> style="width:16px; height:16px;"> Payé
+    </label>
+    <div style="display:flex; gap:8px; margin-top:6px;">
+      <select name="paidMode" style="flex:1; padding:9px; border:1px solid var(--line); font-size:14px;">
+        <option value="" <%= !invoice.paidMode ? 'selected' : '' %>>Mode —</option>
+        <option value="Cash" <%= invoice.paidMode === 'Cash' ? 'selected' : '' %>>Cash</option>
+        <option value="Chèque" <%= invoice.paidMode === 'Chèque' ? 'selected' : '' %>>Chèque</option>
+        <option value="Virement" <%= invoice.paidMode === 'Virement' ? 'selected' : '' %>>Virement</option>
+      </select>
+      <input type="date" name="paidDate" style="flex:1; padding:9px; border:1px solid var(--line); font-size:14px;" value="<%= invoice.paidDate ? new Date(invoice.paidDate).toISOString().slice(0,10) : '' %>">
+    </div>
+    <hr style="margin:16px 0; border:none; border-top:1px solid var(--line);">
 
     <label style="font-family:monospace; font-size:11.5px; color:var(--navy-soft); display:block; margin-top:10px; margin-bottom:4px;">DÉSIGNATION</label>
     <input name="designation" placeholder="Fret aérien">
@@ -93,10 +169,69 @@
       chkNonTaxable.addEventListener('change', function() {
         if (this.checked) chkTaxable.checked = false;
       });
+
+      var chkFlatRate = document.getElementById('chkFlatRate');
+      var perKgFields = document.getElementById('perKgFields');
+      var flatFields = document.getElementById('flatFields');
+      var clientWeightKg = <%= invoice.client.weightKg || 0 %>;
+
+      function num(id) {
+        var v = parseFloat(document.getElementById(id).value);
+        return isNaN(v) ? 0 : v;
+      }
+
+      var latestFactComp = 0, latestFacturationUTS = 0, latestPoidsVol = 0, latestNetteUTS = 0;
+
+      function recalc() {
+        var isFlat = chkFlatRate.checked;
+        perKgFields.style.display = isFlat ? 'none' : 'flex';
+        flatFields.style.display = isFlat ? 'flex' : 'none';
+
+        var poidsVol = num('poidsVolInput');
+        var poidsTaxable = Math.max(clientWeightKg, poidsVol);
+        var autreFrais = num('autreFraisInput');
+        var factComp, facturationUTS;
+
+        if (isFlat) {
+          factComp = num('factCompFlatInput');
+          facturationUTS = num('facturationUTSFlatInput');
+        } else {
+          var tarifAF = num('tarifAFInput');
+          var tarifUTS = num('tarifUTSInput');
+          factComp = Math.round(tarifAF * poidsTaxable * 100) / 100;
+          facturationUTS = Math.round(tarifUTS * poidsTaxable * 100) / 100;
+        }
+        var netteUTS = Math.round((facturationUTS - factComp - autreFrais) * 100) / 100;
+
+        document.getElementById('calcFactComp').textContent = factComp.toFixed(2);
+        document.getElementById('calcFacturationUTS').textContent = facturationUTS.toFixed(2);
+        document.getElementById('calcNetteUTS').textContent = netteUTS.toFixed(2);
+
+        latestFactComp = factComp;
+        latestFacturationUTS = facturationUTS;
+        latestPoidsVol = poidsVol;
+        latestNetteUTS = netteUTS;
+      }
+
+      ['poidsVolInput', 'tarifAFInput', 'tarifUTSInput', 'factCompFlatInput', 'facturationUTSFlatInput', 'autreFraisInput'].forEach(function(id) {
+        document.getElementById(id).addEventListener('input', recalc);
+      });
+      chkFlatRate.addEventListener('change', recalc);
+      recalc();
+
       document.getElementById('editInvoiceForm').addEventListener('submit', function() {
+        recalc();
         document.getElementById('qteHidden').value = document.getElementById('qteInput').value || '1';
-        document.getElementById('montantHidden').value = document.getElementById('montantInput').value || '0';
+        document.getElementById('montantHidden').value = latestFacturationUTS || document.getElementById('montantInput').value || '0';
         document.getElementById('taxTypeHidden').value = chkTaxable.checked ? 'taxable' : 'nonTaxable';
+        document.getElementById('poidsVolHidden').value = latestPoidsVol;
+        document.getElementById('flatRateHidden').value = chkFlatRate.checked ? '1' : '';
+        document.getElementById('tarifAFHidden').value = document.getElementById('tarifAFInput').value || '';
+        document.getElementById('tarifUTSHidden').value = document.getElementById('tarifUTSInput').value || '';
+        document.getElementById('factCompHidden').value = latestFactComp;
+        document.getElementById('facturationUTSHidden').value = latestFacturationUTS;
+        document.getElementById('autreFraisHidden').value = document.getElementById('autreFraisInput').value || '0';
+        document.getElementById('netteUTSHidden').value = latestNetteUTS;
       });
     })();
   </script>

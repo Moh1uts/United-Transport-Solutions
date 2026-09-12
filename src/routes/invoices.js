@@ -76,6 +76,27 @@ router.post('/invoices/:id/edit', async (req, res) => {
   const ice = (req.body.ice || '').trim() || null;
   const invoiceNumber = (req.body.invoiceNumber || '').trim() || oldInvoice.invoiceNumber;
 
+  // Rapport Cash / margin tracking fields - editable here now too.
+  const fournisseur = (req.body.fournisseur || '').trim() || null;
+  const poidsVol = req.body.poidsVol ? parseFloat(req.body.poidsVol) : null;
+  const flatRate = req.body.flatRate === '1';
+  const tarifAF = req.body.tarifAF ? parseFloat(req.body.tarifAF) : null;
+  const tarifUTS = req.body.tarifUTS ? parseFloat(req.body.tarifUTS) : null;
+  const factNego = req.body.factNego ? parseFloat(req.body.factNego) : null;
+  const autreFrais = req.body.autreFrais ? parseFloat(req.body.autreFrais) : 0;
+  const poidsTaxable = Math.max(client.weightKg || 0, poidsVol || 0);
+  const factComp = flatRate
+    ? parseFloat(req.body.factComp || '0')
+    : Math.round((tarifAF || 0) * poidsTaxable * 100) / 100;
+  const facturationUTS = flatRate
+    ? parseFloat(req.body.facturationUTS || '0')
+    : Math.round((tarifUTS || 0) * poidsTaxable * 100) / 100;
+  const netteUTS = Math.round((facturationUTS - (factNego || factComp) - autreFrais) * 100) / 100;
+
+  const paid = !!req.body.paid;
+  const paidMode = paid ? (req.body.paidMode || null) : null;
+  const paidDate = paid ? (req.body.paidDate ? new Date(req.body.paidDate) : (oldInvoice.paidDate || new Date())) : null;
+
   const fileBuffer = await generateInvoicePdf({
     lang,
     invoiceNumber,
@@ -110,18 +131,19 @@ router.post('/invoices/:id/edit', async (req, res) => {
       data: {
         clientId: oldInvoice.clientId,
         invoiceNumber,
-        fournisseur: oldInvoice.fournisseur,
-        poidsVol: oldInvoice.poidsVol,
-        flatRate: oldInvoice.flatRate,
-        tarifAF: oldInvoice.tarifAF,
-        tarifUTS: oldInvoice.tarifUTS,
-        factComp: oldInvoice.factComp,
-        factNego: oldInvoice.factNego,
-        facturationUTS: oldInvoice.facturationUTS,
-        autreFrais: oldInvoice.autreFrais,
-        netteUTS: oldInvoice.netteUTS,
-        paidMode: oldInvoice.paidMode,
-        paidDate: oldInvoice.paidDate,
+        fournisseur,
+        poidsVol,
+        flatRate,
+        tarifAF,
+        tarifUTS,
+        factComp,
+        factNego,
+        facturationUTS,
+        autreFrais,
+        netteUTS,
+        paid,
+        paidMode,
+        paidDate,
         flightNumber,
         lta,
         ice,
