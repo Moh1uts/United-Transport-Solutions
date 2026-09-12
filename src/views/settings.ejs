@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Réglages — United Transport Solutions</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<nav class="topnav">
+  <div class="wrap">
+    <div class="topnav-brand">
+        <img src="/images/logo-white-nav.png" alt="United Transport Solutions">
+    </div>
+    <a href="/potential">Clients Potentiels</a>
+    <a href="/active">Clients Actifs</a>
+    <a href="/refused">Clients Refusés</a>
+    <a href="/finished">Clients Terminés</a>
+    <a href="/invoices">Factures</a>
+    <a href="/report">Rapport Mensuel</a>
+    <a href="/rapport-factures">Rapport Factures</a>
+    <a href="/rapport-cash">Rapport Cash</a>
+    <a href="/rapport-recouvrement">Recouvrement</a>
+    <a href="/clients/new">+ Ajouter un client</a>
+    <a href="/settings" style="opacity:0.6;">Réglages</a>
+    <a href="/monthly-archives" style="position:relative; text-decoration:none; margin-right:10px; font-size:18px;" title="Archives mensuelles">🔔<% if (typeof unreadArchive !== 'undefined' && unreadArchive) { %><span style="position:absolute; top:-2px; right:-2px; width:8px; height:8px; background:#e53935; border-radius:50%; display:inline-block; border:1.5px solid #fff;"></span><% } %></a>
+    <form method="POST" action="/logout"><button class="logout">Déconnexion</button></form>
+  </div>
+</nav>
+<main class="wrap">
+  <h1>Réglages</h1>
+
+  <div class="card" style="border:2px solid #d93025; max-width:560px;">
+    <h2 style="color:#d93025; margin-top:0;">⚠️ Zone dangereuse</h2>
+    <p style="font-size:13.5px; color:var(--navy-soft);">
+      Supprime <strong>définitivement</strong> tous les clients, toutes les factures, tous les événements,
+      les expéditions camion, et les archives mensuelles. Votre connexion admin n'est pas touchée.
+      <br><br>
+      <strong>Cette action est irréversible.</strong> Ne l'utilisez que pour repartir de zéro
+      (par exemple pour effacer les données de test).
+    </p>
+
+    <% if (error) { %><div class="flash" style="background:#fde7e7; color:#d93025; border-color:#d93025;"><%= error %></div><% } %>
+
+    <form method="POST" action="/settings/reset-data" onsubmit="return confirm('Êtes-vous absolument sûr ? Toutes les données seront supprimées définitivement.');">
+      <label style="font-family:monospace; font-size:11.5px; color:var(--navy-soft); display:block; margin-bottom:4px;">
+        Tapez <strong>SUPPRIMER</strong> pour confirmer
+      </label>
+      <input name="confirm" placeholder="SUPPRIMER" autocomplete="off">
+      <button class="btn" type="submit" style="background:#d93025; border-color:#d93025; margin-top:10px;">Tout supprimer et repartir de zéro</button>
+    </form>
+  </div>
+</main>
+</body>
+</html>

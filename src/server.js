@@ -12,6 +12,7 @@ const invoiceRoutes = require('./routes/invoices');
 const reportRoutes = require('./routes/report');
 const publicApiRoutes = require('./routes/publicApi');
 const monthlyArchiveRoutes = require('./routes/monthlyArchive');
+const settingsRoutes = require('./routes/settings');
 const prisma = require('./db');
 const { ensureMonthlyArchiveGenerated } = require('./services/monthlyArchive');
 
@@ -82,6 +83,7 @@ app.use(async (req, res, next) => {
 app.use(invoiceRoutes);
 app.use(reportRoutes);
 app.use(monthlyArchiveRoutes);
+app.use(settingsRoutes);
 app.use(dashboardRoutes);
 
 app.use((req, res) => res.status(404).send('Not found'));
