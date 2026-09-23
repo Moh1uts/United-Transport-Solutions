@@ -7,9 +7,20 @@
 // Twilio, so it's reserved for moments that are actually time-sensitive -
 // everything else still reaches the client, just by email only.
 
+const path = require('path');
 const { composeSms, composeEmailHtml, subjects } = require('./messages');
 const { sendEmail } = require('./email');
 const { sendSms } = require('./sms');
+
+// Inline logo attached to every outgoing email, referenced from the HTML
+// template via cid:uts_logo.png (see messages.js composeEmailHtml). This is
+// what actually puts the UTS logo in these emails - Gmail's own
+// signature/footer settings don't apply to mail sent programmatically here.
+const LOGO_ATTACHMENT = {
+  filename: 'uts_logo.png',
+  path: path.join(__dirname, '..', 'assets', 'uts_logo.png'),
+  cid: 'uts_logo.png'
+};
 
 // Event types urgent enough to justify an SMS: invoice/order arrived, and
 // anything going wrong (delay, problem). Everything else is email-only.
@@ -31,7 +42,7 @@ async function notifyClient(client, type, data = {}, attachments = []) {
     shouldSendSms
       ? sendSms(client.phone, composeSms(type, mergedData))
       : Promise.resolve({ skipped: true, reason: 'not an urgent event type' }),
-    sendEmail(client.email, subject, emailHtml, attachments)
+    sendEmail(client.email, subject, emailHtml, [LOGO_ATTACHMENT, ...attachments])
   ];
   const results = await Promise.allSettled(sends);
 

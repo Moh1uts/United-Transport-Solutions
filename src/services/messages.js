@@ -115,10 +115,26 @@ function composeSms(type, data) {
   return t.fr;
 }
 
-/** Builds a simple HTML email body with the same 3-language order. */
+/** Builds a simple HTML email body with the same 3-language order, plus a
+ * logo + signature footer so every automated email is branded regardless
+ * of any Gmail-side signature/footer setting (those don't apply to mail
+ * sent programmatically via SMTP - only to mail composed in Gmail itself). */
 function composeEmailHtml(type, data) {
   const t = templates[type](data);
   const block = (text, dir) => `<p style="margin:0 0 16px; font-family:Arial,sans-serif; font-size:15px; color:#122B4A; direction:${dir};">${text}</p>`;
+  const signature = `
+    <div style="margin-top:28px; padding-top:20px; border-top:2px solid #C9972A;">
+      <img src="cid:uts_logo.png" width="140" alt="${COMPANY_NAME}" style="display:block; margin-bottom:10px;">
+      <p style="margin:0; font-family:Arial,sans-serif; font-size:14px; font-weight:bold; color:#122B4A;">${COMPANY_NAME}</p>
+      <p style="margin:2px 0 0; font-family:Arial,sans-serif; font-size:13px; color:#444;">${COMPANY_PHONE}</p>
+      <p style="margin:2px 0 0; font-family:Arial,sans-serif; font-size:13px; color:#444;">
+        <a href="mailto:${COMPANY_EMAIL}" style="color:#1F3864; text-decoration:none;">${COMPANY_EMAIL}</a>
+      </p>
+      <p style="margin:2px 0 0; font-family:Arial,sans-serif; font-size:13px;">
+        <a href="https://www.unitedtransportsolutions.com" style="color:#1F3864; text-decoration:none;">www.unitedtransportsolutions.com</a>
+      </p>
+    </div>
+  `;
   return `
     <div style="max-width:520px; margin:0 auto; padding:24px;">
       ${block(t.fr, 'ltr')}
@@ -126,6 +142,7 @@ function composeEmailHtml(type, data) {
       ${block(t.en, 'ltr')}
       <hr style="border:none; border-top:1px solid #ddd; margin:16px 0;">
       ${block(t.ar, 'rtl')}
+      ${signature}
     </div>
   `;
 }

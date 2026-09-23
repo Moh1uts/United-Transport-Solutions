@@ -12,8 +12,12 @@ function getTransporter() {
   if (transporter) return transporter;
   transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
-    port: 465,
-    secure: true,
+    // Port 465 (implicit TLS) times out on some hosts' networks (Render's
+    // outbound included, in practice) - 587 (STARTTLS) is the standard
+    // submission port and is far more reliably reachable from cloud hosts.
+    port: 587,
+    secure: false, // STARTTLS is negotiated automatically on port 587
+    connectionTimeout: 10000, // fail fast (10s) instead of hanging
     auth: {
       user: process.env.SMTP_USER, // contact@unitedtransportsolutions.com
       pass: process.env.SMTP_APP_PASSWORD // 16-character App Password
