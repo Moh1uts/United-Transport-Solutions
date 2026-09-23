@@ -1,50 +1,65 @@
 // src/services/email.js
 //
-// Sends email via Google Workspace SMTP (smtp.gmail.com), using an "App
-// Password" - NOT the normal account password. See README section
-// "Setting up Google Workspace email sending" for the exact steps to
-// generate one; it requires 2-Step Verification to be turned on first.
+// Sends email via Resend's HTTPS API (api.resend.com), NOT raw SMTP.
+//
+// Why: this backend runs on Render, and direct SMTP connections to Gmail
+// (smtp.gmail.com, ports 465 and 587) consistently time out from there -
+// mail providers commonly block/ignore raw SMTP connections coming from
+// cloud-hosting IP ranges as an anti-spam measure, regardless of whether
+// the credentials are correct. HTTPS traffic (which this uses) is not
+// affected by that, so switching to an HTTP-based email API is the fix.
+//
+// Setup: sign up at resend.com, verify unitedtransportsolutions.com as a
+// sending domain (Resend gives you DNS records to add), then create an API
+// key and set it as RESEND_API_KEY in Render's environment variables.
 
-const nodemailer = require('nodemailer');
-
-let transporter = null;
-function getTransporter() {
-  if (transporter) return transporter;
-  transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    // Port 465 (implicit TLS) times out on some hosts' networks (Render's
-    // outbound included, in practice) - 587 (STARTTLS) is the standard
-    // submission port and is far more reliably reachable from cloud hosts.
-    port: 587,
-    secure: false, // STARTTLS is negotiated automatically on port 587
-    connectionTimeout: 10000, // fail fast (10s) instead of hanging
-    auth: {
-      user: process.env.SMTP_USER, // contact@unitedtransportsolutions.com
-      pass: process.env.SMTP_APP_PASSWORD // 16-character App Password
-    }
-  });
-  return transporter;
-}
+const RESEND_API_URL = 'https://api.resend.com/emails';
 
 /**
  * @param {string} to - recipient email address
  * @param {string} subject
  * @param {string} html
- * @param {Array<{filename:string, content:Buffer}>} [attachments]
+ * @param {Array<{filename:string, content:Buffer|string}>} [attachments] - content is a Buffer or base64 string
  */
 async function sendEmail(to, subject, html, attachments = []) {
-  if (!process.env.SMTP_USER || !process.env.SMTP_APP_PASSWORD) {
-    console.warn('[email] SMTP_USER / SMTP_APP_PASSWORD not configured - skipping send. Would have sent:', { to, subject });
+  if (!process.env.RESEND_API_KEY) {
+    console.warn('[email] RESEND_API_KEY not configured - skipping send. Would have sent:', { to, subject });
     return { skipped: true };
   }
-  const info = await getTransporter().sendMail({
-    from: `"${process.env.COMPANY_NAME || 'United Transport Solutions'}" <${process.env.SMTP_USER}>`,
-    to,
+
+  const fromAddress = process.env.SMTP_USER || 'contact@unitedtransportsolutions.com';
+  const fromName = process.env.COMPANY_NAME || 'United Transport Solutions';
+
+  const payload = {
+    from: `${fromName} <${fromAddress}>`,
+    to: [to],
     subject,
-    html,
-    attachments
+    html
+  };
+
+  if (attachments.length) {
+    payload.attachments = attachments.map((a) => ({
+      filename: a.filename,
+      // Resend wants base64 content - convert a Buffer if that's what we got.
+      content: Buffer.isBuffer(a.content) ? a.content.toString('base64') : a.content
+    }));
+  }
+
+  const res = await fetch(RESEND_API_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
   });
-  return info;
+
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => '');
+    throw new Error(`Resend API error ${res.status}: ${errBody}`);
+  }
+
+  return res.json();
 }
 
 module.exports = { sendEmail };

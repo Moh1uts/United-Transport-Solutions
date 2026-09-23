@@ -124,7 +124,7 @@ function composeEmailHtml(type, data) {
   const block = (text, dir) => `<p style="margin:0 0 16px; font-family:Arial,sans-serif; font-size:15px; color:#122B4A; direction:${dir};">${text}</p>`;
   const signature = `
     <div style="margin-top:28px; padding-top:20px; border-top:2px solid #C9972A;">
-      <img src="cid:uts_logo.png" width="140" alt="${COMPANY_NAME}" style="display:block; margin-bottom:10px;">
+      <img src="https://raw.githubusercontent.com/Moh1uts/United-Transport-Solutions/main/src/assets/uts_logo.png" width="140" alt="${COMPANY_NAME}" style="display:block; margin-bottom:10px;">
       <p style="margin:0; font-family:Arial,sans-serif; font-size:14px; font-weight:bold; color:#122B4A;">${COMPANY_NAME}</p>
       <p style="margin:2px 0 0; font-family:Arial,sans-serif; font-size:13px; color:#444;">${COMPANY_PHONE}</p>
       <p style="margin:2px 0 0; font-family:Arial,sans-serif; font-size:13px; color:#444;">
