@@ -122,9 +122,19 @@ function composeSms(type, data) {
 function composeEmailHtml(type, data) {
   const t = templates[type](data);
   const block = (text, dir) => `<p style="margin:0 0 16px; font-family:Arial,sans-serif; font-size:15px; color:#122B4A; direction:${dir};">${text}</p>`;
+
+  // Letterhead-style header: a solid navy banner with the logo on a white
+  // roundel, so the email doesn't just start bare on white with "Bonjour".
+  const header = `
+    <div style="background:#1F3864; padding:24px 24px 18px; text-align:center; border-radius:8px 8px 0 0;">
+      <div style="display:inline-block; background:#ffffff; padding:10px 16px; border-radius:6px;">
+        <img src="https://raw.githubusercontent.com/Moh1uts/United-Transport-Solutions/main/src/assets/uts_logo.png" width="150" alt="${COMPANY_NAME}" style="display:block;">
+      </div>
+    </div>
+  `;
+
   const signature = `
     <div style="margin-top:28px; padding-top:20px; border-top:2px solid #C9972A;">
-      <img src="https://raw.githubusercontent.com/Moh1uts/United-Transport-Solutions/main/src/assets/uts_logo.png" width="140" alt="${COMPANY_NAME}" style="display:block; margin-bottom:10px;">
       <p style="margin:0; font-family:Arial,sans-serif; font-size:14px; font-weight:bold; color:#122B4A;">${COMPANY_NAME}</p>
       <p style="margin:2px 0 0; font-family:Arial,sans-serif; font-size:13px; color:#444;">${COMPANY_PHONE}</p>
       <p style="margin:2px 0 0; font-family:Arial,sans-serif; font-size:13px; color:#444;">
@@ -135,14 +145,18 @@ function composeEmailHtml(type, data) {
       </p>
     </div>
   `;
+
   return `
-    <div style="max-width:520px; margin:0 auto; padding:24px;">
-      ${block(t.fr, 'ltr')}
-      <hr style="border:none; border-top:1px solid #ddd; margin:16px 0;">
-      ${block(t.en, 'ltr')}
-      <hr style="border:none; border-top:1px solid #ddd; margin:16px 0;">
-      ${block(t.ar, 'rtl')}
-      ${signature}
+    <div style="max-width:520px; margin:0 auto; background:#F7F5F0; border-radius:8px; overflow:hidden;">
+      ${header}
+      <div style="padding:24px;">
+        ${block(t.fr, 'ltr')}
+        <hr style="border:none; border-top:1px solid #ddd; margin:16px 0;">
+        ${block(t.en, 'ltr')}
+        <hr style="border:none; border-top:1px solid #ddd; margin:16px 0;">
+        ${block(t.ar, 'rtl')}
+        ${signature}
+      </div>
     </div>
   `;
 }
