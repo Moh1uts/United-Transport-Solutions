@@ -42,7 +42,11 @@ model Client {
   nature         String   // nature of goods
   packages       Int?
   weightKg       Float?
-  volume         String?
+  longueur       Float?   // cm
+  largeur        Float?   // cm
+  hauteur        Float?   // cm
+  volume         String?  // m³, auto-computed on the website from longueur x largeur x hauteur
+  gerbable       String?  // "Oui" | "Non" - whether the goods can be stacked
   ice            String?  // Moroccan business tax ID, optional
   preferredDate  String?  // free text / ISO date string from the form
   notes          String?

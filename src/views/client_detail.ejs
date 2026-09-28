@@ -44,7 +44,9 @@
       <div><label>Nature de la marchandise</label><%= client.nature %></div>
       <div><label>Colis</label><%= client.packages ?? '—' %></div>
       <div><label>Poids brut</label><%= client.weightKg ? client.weightKg + ' kg' : '—' %></div>
-      <div><label>Volume</label><%= client.volume || '—' %></div>
+      <div><label>Dimensions (L x l x H, cm)</label><%= (client.longueur && client.largeur && client.hauteur) ? `${client.longueur} x ${client.largeur} x ${client.hauteur}` : '—' %></div>
+      <div><label>Volume</label><%= client.volume ? client.volume + ' m³' : '—' %></div>
+      <div><label>Gerbable</label><%= client.gerbable || '—' %></div>
       <div><label>ICE</label><%= client.ice || '—' %></div>
       <div><label>Date souhaitée</label><%= client.preferredDate || '—' %></div>
       <div><label>Source</label><%= client.source %></div>

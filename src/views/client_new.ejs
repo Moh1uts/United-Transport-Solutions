@@ -62,12 +62,34 @@
       <div class="full"><label>Nature de la marchandise *</label><input name="nature" required></div>
       <div><label>Nombre de colis</label><input type="number" name="packages" min="1"></div>
       <div><label>Poids brut (kg)</label><input type="number" name="weightKg" min="0"></div>
-      <div><label>Volume (m³)</label><input name="volume"></div>
+      <div><label>Longueur (cm)</label><input type="number" step="0.1" min="0" name="longueur" id="dimLongueur"></div>
+      <div><label>Largeur (cm)</label><input type="number" step="0.1" min="0" name="largeur" id="dimLargeur"></div>
+      <div><label>Hauteur (cm)</label><input type="number" step="0.1" min="0" name="hauteur" id="dimHauteur"></div>
+      <div><label>Volume (m³)</label><input name="volume" id="dimVolume" readonly style="background:#f2f2f2;"></div>
+      <div>
+        <label>Marchandise gerbable ?</label>
+        <select name="gerbable">
+          <option value="">-- Sélectionner --</option>
+          <option value="Oui">Oui</option>
+          <option value="Non">Non</option>
+        </select>
+      </div>
       <div><label>ICE (si société)</label><input name="ice"></div>
       <div class="full"><label>Notes</label><textarea name="notes"></textarea></div>
     </div>
     <button class="btn" type="submit" style="margin-top:16px;">Ajouter le client et envoyer la confirmation</button>
   </form>
 </main>
+<script>
+  function recomputeDimVolume(){
+    const num = id => parseFloat(document.getElementById(id).value) || 0;
+    const l = num('dimLongueur'), w = num('dimLargeur'), h = num('dimHauteur');
+    const volumeEl = document.getElementById('dimVolume');
+    volumeEl.value = (l > 0 && w > 0 && h > 0) ? ((l * w * h) / 1000000).toFixed(3) : '';
+  }
+  ['dimLongueur','dimLargeur','dimHauteur'].forEach(id => {
+    document.getElementById(id).addEventListener('input', recomputeDimVolume);
+  });
+</script>
 </body>
 </html>
