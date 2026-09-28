@@ -65,7 +65,8 @@ const LABELS = {
 };
 
 const COMPANY_ADDRESS = '13 Rue Al Kassar 5ème étage N° 10 Maarif, 20200 CASABLANCA';
-const COMPANY_CONTACT = 'Tél : 0700172779 / 0522 99 24 99  -  Email: united.transport.solutions9@gmail.com';
+const COMPANY_CONTACT = 'Tél : 0700172779 / 0522 99 24 99  -  Email: contact@unitedtransportsolutions.com';
+const COMPANY_WEBSITE = 'www.unitedtransportsolutions.com';
 const COMPANY_LEGAL = 'RC 577359 / IF: 53698033   CNSS : 4750723   ICE: 003246421000004 / PATENTE : 35705314';
 
 const PAGE_W = 595.28;
@@ -297,7 +298,7 @@ function generateInvoicePdf(p) {
   doc.font('Helvetica-Bold').fontSize(10).fillColor(COLORS.navy);
   doc.text(L.amountWords, MARGIN, y, { continued: true });
   doc.font('Helvetica').fillColor(COLORS.valueBlue).text(`  ${amountWordsText}`);
-  y += 24;
+  y += 45;
 
   // --- Signature (centered under the price) ----------------------------
   if (fs.existsSync(SIGNATURE_PATH)) {
@@ -314,15 +315,16 @@ function generateInvoicePdf(p) {
   doc.font('Helvetica').fontSize(7.5).fillColor(COLORS.footerGray);
   doc.text(COMPANY_ADDRESS, MARGIN, footerY + 13, { width: 320 });
   doc.text(COMPANY_CONTACT, MARGIN, footerY + 24, { width: 320 });
-  doc.text(COMPANY_LEGAL, MARGIN, footerY + 35, { width: 320 });
+  doc.text(COMPANY_WEBSITE, MARGIN, footerY + 35, { width: 320 });
+  doc.text(COMPANY_LEGAL, MARGIN, footerY + 46, { width: 320 });
 
   doc.font('Helvetica-Bold').fontSize(8.5).fillColor(COLORS.headerBlue);
   doc.text(`•  ${L.footerIcons[0]}`, MARGIN + 340, footerY, { width: 175 });
   doc.fillColor(COLORS.headerGreen);
   doc.text(`•  ${L.footerIcons[1]}`, MARGIN + 340, footerY + 13, { width: 175 });
 
-  doc.rect(MARGIN, footerY + 50, 100, 2).fill(COLORS.headerBlue);
-  doc.rect(MARGIN + 100, footerY + 50, 80, 2).fill(COLORS.headerGreen);
+  doc.rect(MARGIN, footerY + 61, 100, 2).fill(COLORS.headerBlue);
+  doc.rect(MARGIN + 100, footerY + 61, 80, 2).fill(COLORS.headerGreen);
 
   doc.end();
 
