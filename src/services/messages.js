@@ -1,13 +1,15 @@
 // src/services/messages.js
 //
-// Every client-facing message (SMS + email) is composed in French, then
-// English, then Arabic, in that fixed order, per business requirement.
+// Every client-facing message is composed in French, then English, then
+// Arabic, in that fixed order, per business requirement.
 //
 // Two versions of each message exist:
-//   - `sms`   : short, plain text (SMS is billed per 160-char segment, and
-//               ANY Arabic/unicode content forces the whole message into
-//               70-char UCS-2 segments - see README "SMS cost note")
-//   - `email` : fuller text, rendered as simple HTML with the 3 languages
+//   - `sms`   : French + English only, plain text, separated by a blank
+//               line (SMS is billed per 160-char segment, and ANY Arabic/
+//               unicode content forces the whole message into 70-char
+//               UCS-2 segments - see README "SMS cost note" - so Arabic is
+//               left out of SMS specifically to avoid that cost multiplier)
+//   - `email` : fuller text, rendered as simple HTML with all 3 languages
 //               stacked and separated by a rule
 //
 // COMPANY_NAME / COMPANY_PHONE / COMPANY_EMAIL come from environment
@@ -28,11 +30,79 @@ const templates = {
     ar: `مرحباً ${data.name}، لقد تلقينا طلب عرض السعر الخاص بكم. سيتواصل معكم فريقنا في أقرب وقت. — ${COMPANY_NAME}`
   }),
 
-  ready_to_work: (data) => ({
-    fr: `Bonjour ${data.name}, bonne nouvelle : suite à votre demande de devis, nous sommes prêts à traiter votre envoi. Nous vous proposons un tarif de ${data.pricePerKg} DHS/kg. N'hésitez pas à nous appeler au ${COMPANY_PHONE} ou à nous écrire à ${COMPANY_EMAIL} si vous souhaitez ajuster ce tarif.`,
-    en: `Hello ${data.name}, good news: following your quote request, we're ready to handle your shipment. We're offering a rate of ${data.pricePerKg} DHS/kg. Feel free to call us at ${COMPANY_PHONE} or email ${COMPANY_EMAIL} if you'd like to discuss adjusting this rate.`,
-    ar: `مرحباً ${data.name}، خبر سار: بناءً على طلب عرض السعر الخاص بكم، نحن جاهزون للتكفل بشحنتكم. نقترح عليكم سعر ${data.pricePerKg} درهم/كلغ. لا تترددوا في الاتصال بنا على ${COMPANY_PHONE} أو مراسلتنا على ${COMPANY_EMAIL} إذا رغبتم في مناقشة تعديل هذا السعر.`
-  }),
+  // data.quotes is an array of { airport, company, direct, tarif } - one
+  // item for a single quote, several for multiple options to choose from.
+  // "direct" is the raw form value ("Direct" / "Non direct") and is only
+  // ever set from that fixed select, so it's safe to print as-is in FR/EN.
+  //
+  // Wording changes based on quotes.length:
+  //   - 1 quote  -> a single flowing sentence stating that one rate, same
+  //                 shape as before this feature existed.
+  //   - 2+ quotes -> an explicit "here are our options" intro, each option
+  //                 numbered, so the client can clearly compare and reply
+  //                 with which one they want. In the email, this additionally
+  //                 renders as a real numbered list (see emailFr/En/Ar below)
+  //                 instead of a run-on sentence, since email has room for it;
+  //                 the SMS/plain-text version (fr, used by composeSms) stays
+  //                 a single compact line per option to control per-segment
+  //                 SMS cost (see README "SMS cost & deliverability").
+  ready_to_work: (data) => {
+    const quotes = Array.isArray(data.quotes) && data.quotes.length ? data.quotes : [{ airport: '—', company: '—', direct: '—', tarif: data.pricePerKg || '—' }];
+    const n = quotes.length;
+    const directAr = (d) => (d === 'Direct' ? 'مباشرة' : d === 'Non direct' ? 'مع توقف' : d);
+
+    // --- plain-text lines (used by SMS, and by the single-quote email) ---
+    const lineFr = (q, i) => `${n > 1 ? `Option ${i + 1} : ` : ''}${q.company}, vol ${q.direct === 'Direct' ? 'direct' : 'avec escale'} vers ${q.airport}, tarif ${q.tarif} DHS/kg TTC.`;
+    const lineEn = (q, i) => `${n > 1 ? `Option ${i + 1}: ` : ''}${q.company}, ${q.direct === 'Direct' ? 'direct' : 'connecting'} flight to ${q.airport}, rate ${q.tarif} DHS/kg (all taxes included).`;
+    const lineAr = (q, i) => `${n > 1 ? `الخيار ${i + 1}: ` : ''}${q.company}، رحلة ${directAr(q.direct)} إلى ${q.airport}، بسعر ${q.tarif} درهم/كلغ شامل جميع الضرائب.`;
+
+    const introFr = n > 1
+      ? `Bonjour ${data.name}, bonne nouvelle : suite à votre demande de devis, nous sommes prêts à traiter votre envoi. Voici nos ${n} propositions :`
+      : `Bonjour ${data.name}, bonne nouvelle : suite à votre demande de devis, nous sommes prêts à traiter votre envoi :`;
+    const introEn = n > 1
+      ? `Hello ${data.name}, good news: following your quote request, we're ready to handle your shipment. Here are our ${n} options:`
+      : `Hello ${data.name}, good news: following your quote request, we're ready to handle your shipment:`;
+    const introAr = n > 1
+      ? `مرحباً ${data.name}، خبر سار: بناءً على طلب عرض السعر الخاص بكم، نحن جاهزون للتكفل بشحنتكم. إليكم عروضنا:`
+      : `مرحباً ${data.name}، خبر سار: بناءً على طلب عرض السعر الخاص بكم، نحن جاهزون للتكفل بشحنتكم:`;
+
+    const closingFr = n > 1
+      ? `Merci de nous indiquer l'option que vous choisissez. N'hésitez pas à nous appeler au ${COMPANY_PHONE} ou à nous écrire à ${COMPANY_EMAIL} pour toute question.`
+      : `N'hésitez pas à nous appeler au ${COMPANY_PHONE} ou à nous écrire à ${COMPANY_EMAIL} si vous souhaitez ajuster ce tarif.`;
+    const closingEn = n > 1
+      ? `Please let us know which option you'd like to go with. Feel free to call us at ${COMPANY_PHONE} or email ${COMPANY_EMAIL} with any questions.`
+      : `Feel free to call us at ${COMPANY_PHONE} or email ${COMPANY_EMAIL} if you'd like to discuss adjusting this rate.`;
+    const closingAr = n > 1
+      ? `يرجى إخبارنا بالخيار الذي ترغبون في اعتماده. لا تترددوا في الاتصال بنا على ${COMPANY_PHONE} أو مراسلتنا على ${COMPANY_EMAIL} لأي استفسار.`
+      : `لا تترددوا في الاتصال بنا على ${COMPANY_PHONE} أو مراسلتنا على ${COMPANY_EMAIL} إذا رغبتم في مناقشة تعديل هذا السعر.`;
+
+    // Plain text (SMS uses fr only; en/ar plain text kept for anywhere a
+    // non-HTML fallback is needed).
+    const fr = `${introFr} ${quotes.map(lineFr).join(' ')} ${closingFr}`;
+    const en = `${introEn} ${quotes.map(lineEn).join(' ')} ${closingEn}`;
+    const ar = `${introAr} ${quotes.map(lineAr).join(' ')} ${closingAr}`;
+
+    // HTML versions for the email only: a real numbered list when there's
+    // more than one option, so each one is clearly presented on its own
+    // line instead of packed into one sentence. A single quote still reads
+    // as one clean sentence, matching how it looked before this feature.
+    const listItem = (text) => `<li style="margin-bottom:6px;">${text}</li>`;
+    const rowFr = (q) => `${q.company} — vol ${q.direct === 'Direct' ? 'direct' : 'avec escale'} vers <strong>${q.airport}</strong> — <strong>${q.tarif} DHS/kg TTC</strong>`;
+    const rowEn = (q) => `${q.company} — ${q.direct === 'Direct' ? 'direct' : 'connecting'} flight to <strong>${q.airport}</strong> — <strong>${q.tarif} DHS/kg</strong> (all taxes included)`;
+    const rowAr = (q) => `${q.company} — رحلة ${directAr(q.direct)} إلى <strong>${q.airport}</strong> — <strong>${q.tarif} درهم/كلغ</strong> شامل جميع الضرائب`;
+
+    const emailFr = n > 1
+      ? `<p style="margin:0 0 10px;">${introFr}</p><ol style="margin:0 0 10px; padding-left:20px;">${quotes.map(q => listItem(rowFr(q))).join('')}</ol><p style="margin:0;">${closingFr}</p>`
+      : `<p style="margin:0;">${fr}</p>`;
+    const emailEn = n > 1
+      ? `<p style="margin:0 0 10px;">${introEn}</p><ol style="margin:0 0 10px; padding-left:20px;">${quotes.map(q => listItem(rowEn(q))).join('')}</ol><p style="margin:0;">${closingEn}</p>`
+      : `<p style="margin:0;">${en}</p>`;
+    const emailAr = n > 1
+      ? `<p style="margin:0 0 10px;">${introAr}</p><ol style="margin:0 0 10px; padding-right:20px; padding-left:0;">${quotes.map(q => listItem(rowAr(q))).join('')}</ol><p style="margin:0;">${closingAr}</p>`
+      : `<p style="margin:0;">${ar}</p>`;
+
+    return { fr, en, ar, emailFr, emailEn, emailAr };
+  },
 
   refused: (data) => ({
     fr: `Bonjour ${data.name}, nous ne sommes malheureusement pas en mesure de traiter votre demande. Raison : ${data.reason}. Si vous pensez qu'il s'agit d'une erreur, ou pour en discuter, appelez-nous au ${COMPANY_PHONE}.`,
@@ -112,7 +182,13 @@ const templates = {
  * so the 3-language version is reserved for email, where length is free. */
 function composeSms(type, data) {
   const t = templates[type](data);
-  return t.fr;
+  // French then English, separated by a blank line - no Arabic here. French
+  // accented characters (é, è, à, ç...) and English are both in the GSM-7
+  // alphabet, so this still sends as a normal ~153-char/segment SMS; adding
+  // Arabic would flip the whole message into ~67-char Unicode segments and
+  // multiply the cost (see README "SMS cost & deliverability"), so Arabic
+  // stays email-only.
+  return `${t.fr}\n\n${t.en}`;
 }
 
 /** Builds a simple HTML email body with the same 3-language order, plus a
@@ -122,6 +198,13 @@ function composeSms(type, data) {
 function composeEmailHtml(type, data) {
   const t = templates[type](data);
   const block = (text, dir) => `<p style="margin:0 0 16px; font-family:Arial,sans-serif; font-size:15px; color:#122B4A; direction:${dir};">${text}</p>`;
+  // A template can provide emailFr/emailEn/emailAr - pre-built HTML (e.g. a
+  // numbered list of quote options) to use instead of the plain fr/en/ar
+  // text wrapped in a single <p>. Only ready_to_work does this today.
+  const section = (html, dir) => `<div style="margin:0 0 16px; font-family:Arial,sans-serif; font-size:15px; color:#122B4A; direction:${dir};">${html}</div>`;
+  const bodyFr = t.emailFr ? section(t.emailFr, 'ltr') : block(t.fr, 'ltr');
+  const bodyEn = t.emailEn ? section(t.emailEn, 'ltr') : block(t.en, 'ltr');
+  const bodyAr = t.emailAr ? section(t.emailAr, 'rtl') : block(t.ar, 'rtl');
 
   // Letterhead-style header: a solid navy banner with the logo on a white
   // roundel, so the email doesn't just start bare on white with "Bonjour".
@@ -150,11 +233,11 @@ function composeEmailHtml(type, data) {
     <div style="max-width:520px; margin:0 auto; background:#F7F5F0; border-radius:8px; overflow:hidden;">
       ${header}
       <div style="padding:24px;">
-        ${block(t.fr, 'ltr')}
+        ${bodyFr}
         <hr style="border:none; border-top:1px solid #ddd; margin:16px 0;">
-        ${block(t.en, 'ltr')}
+        ${bodyEn}
         <hr style="border:none; border-top:1px solid #ddd; margin:16px 0;">
-        ${block(t.ar, 'rtl')}
+        ${bodyAr}
         ${signature}
       </div>
     </div>
@@ -179,4 +262,24 @@ const subjects = {
   finish_failed: 'Nos excuses / Our apologies / اعتذارنا'
 };
 
-module.exports = { composeSms, composeEmailHtml, subjects, COMPANY_NAME, COMPANY_PHONE, COMPANY_EMAIL };
+// ---------------------------------------------------------------------------
+// Internal "new quote" alert - sent to the business owner (dad), not the
+// client. Text (SMS) only, per business decision - no email version.
+// French only, since it's an internal tool, not a client-facing message,
+// so the FR/EN/AR rule above doesn't apply here.
+// ---------------------------------------------------------------------------
+
+/** Short SMS alert: just enough to know a new lead came in and glance at
+ * the essentials before opening the dashboard. */
+function composeOwnerAlertSms(client) {
+  const bits = [
+    client.phone || '—',
+    `${client.city || '—'} → ${client.destination || '—'}`,
+    client.nature || '—'
+  ];
+  if (client.weightKg) bits.push(`${client.weightKg} kg`);
+  if (client.packages) bits.push(`${client.packages} colis`);
+  return `Nouveau devis reçu sur le site (${client.name}) : ${bits.join(' — ')}. Ouvrez le dashboard pour répondre.`;
+}
+
+module.exports = { composeSms, composeEmailHtml, subjects, composeOwnerAlertSms, COMPANY_NAME, COMPANY_PHONE, COMPANY_EMAIL };

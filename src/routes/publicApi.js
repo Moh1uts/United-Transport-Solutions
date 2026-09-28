@@ -15,7 +15,7 @@
 const express = require('express');
 const router = express.Router();
 const prisma = require('../db');
-const { notifyClient } = require('../services/notify');
+const { notifyClient, notifyOwnerNewQuote } = require('../services/notify');
 
 const WINDOW_MS = 60 * 1000; // 1 minute
 const MAX_REQUESTS_PER_WINDOW = 5;
@@ -76,6 +76,10 @@ router.post('/api/public/quote', rateLimit, checkApiKey, async (req, res) => {
     await prisma.event.create({
       data: { clientId: client.id, type: 'quote_received', messageSent: result.bothOk }
     });
+    // Fire-and-forget: alert your dad that a new quote request came in from
+    // the website. Doesn't block or affect the response to the visitor -
+    // if it fails (or isn't configured yet), the quote is still saved fine.
+    notifyOwnerNewQuote(client).catch((err) => console.error('[public/quote] owner alert failed:', err));
 
     res.json({ success: true });
   } catch (err) {

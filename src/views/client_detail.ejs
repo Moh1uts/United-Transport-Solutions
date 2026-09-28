@@ -69,19 +69,149 @@
     <div class="action-grid">
       <div class="action-box">
         <h3>Prêt à travailler avec vous</h3>
-        <p style="font-size:12.5px; color:var(--navy-soft);">Indique au client que nous pouvons prendre l'envoi, avec un tarif au kg.</p>
+        <p style="font-size:12.5px; color:var(--navy-soft);">Indique au client que nous pouvons prendre l'envoi, avec un ou plusieurs devis (tarif au kg, TTC).</p>
         <% if (lastEvents.ready_to_work) { %>
           <div class="sent-note">Envoyé le <%= new Date(lastEvents.ready_to_work).toLocaleString('fr-FR') %></div>
-          <form method="POST" action="/clients/<%= client.id %>/ready-to-work">
-            <input type="number" step="0.01" name="pricePerKg" placeholder="Tarif DHS/kg" required>
-            <button class="btn small ghost" type="submit">Renvoyer</button>
-          </form>
-        <% } else { %>
-          <form method="POST" action="/clients/<%= client.id %>/ready-to-work">
-            <input type="number" step="0.01" name="pricePerKg" placeholder="Tarif DHS/kg" required>
-            <button class="btn green small" type="submit">Envoyer</button>
-          </form>
         <% } %>
+
+        <form method="POST" action="/clients/<%= client.id %>/ready-to-work" id="readyToWorkForm">
+          <div class="rtw-mode" style="display:flex; gap:14px; margin-bottom:10px; font-size:13px;">
+            <label style="display:flex; align-items:center; gap:5px; font-weight:normal;">
+              <input type="radio" name="rtwMode" value="single" checked> Devis unique
+            </label>
+            <label style="display:flex; align-items:center; gap:5px; font-weight:normal;">
+              <input type="radio" name="rtwMode" value="multiple"> Devis multiples
+            </label>
+          </div>
+
+          <div id="rtwQuoteBlocks"></div>
+
+          <button type="button" id="rtwAddQuote" class="btn small ghost" style="display:none; margin-bottom:8px;">+ Ajouter un devis</button>
+
+          <button class="btn <%= lastEvents.ready_to_work ? '' : 'green' %> small" type="submit"><%= lastEvents.ready_to_work ? 'Renvoyer' : 'Envoyer' %></button>
+        </form>
+
+        <datalist id="rtwAirports">
+          <option value="Paris - Charles de Gaulle (CDG)">
+          <option value="Paris - Orly (ORY)">
+          <option value="Lyon - Saint-Exupéry (LYS)">
+          <option value="Marseille Provence (MRS)">
+          <option value="Bruxelles (BRU)">
+          <option value="Amsterdam - Schiphol (AMS)">
+          <option value="Francfort (FRA)">
+          <option value="Madrid - Barajas (MAD)">
+          <option value="Barcelone - El Prat (BCN)">
+          <option value="Milan - Malpensa (MXP)">
+          <option value="Rome - Fiumicino (FCO)">
+          <option value="Londres - Heathrow (LHR)">
+          <option value="Genève (GVA)">
+          <option value="Budapest - Ferenc Liszt (BUD)">
+          <option value="Montréal - Trudeau (YUL)">
+          <option value="Toronto - Pearson (YYZ)">
+          <option value="New York - JFK (JFK)">
+          <option value="Dubaï (DXB)">
+          <option value="Istanbul (IST)">
+          <option value="Doha - Hamad (DOH)">
+        </datalist>
+        <datalist id="rtwAirlines">
+          <option value="Air France">
+          <option value="Royal Air Maroc">
+          <option value="Air Arabia Maroc">
+          <option value="Air Arabia">
+          <option value="Ryanair">
+          <option value="Transavia">
+          <option value="Turkish Airlines">
+          <option value="Emirates">
+          <option value="Qatar Airways">
+          <option value="Lufthansa">
+          <option value="Air Canada">
+        </datalist>
+
+        <script>
+          (function() {
+            var wrap = document.getElementById('readyToWorkForm');
+            var blocksEl = document.getElementById('rtwQuoteBlocks');
+            var addBtn = document.getElementById('rtwAddQuote');
+            var modeRadios = wrap.querySelectorAll('input[name="rtwMode"]');
+            var blockCount = 0;
+
+            function makeBlock() {
+              var i = blockCount++;
+              var box = document.createElement('div');
+              box.className = 'rtw-quote-block';
+              box.style.cssText = 'border:1px solid var(--line); padding:8px; margin-bottom:8px; display:grid; grid-template-columns:1fr; gap:6px; position:relative;';
+              box.innerHTML =
+                '<input type="text" list="rtwAirports" name="quotes[' + i + '][airport]" placeholder="Aéroport (destination)" required>' +
+                '<input type="text" list="rtwAirlines" name="quotes[' + i + '][company]" placeholder="Compagnie (ex: Air France)" required>' +
+                '<select name="quotes[' + i + '][direct]" required>' +
+                  '<option value="">Vol direct ou non direct ?</option>' +
+                  '<option value="Direct">Vol direct</option>' +
+                  '<option value="Non direct">Vol non direct (escale)</option>' +
+                '</select>' +
+                '<input type="number" step="0.01" name="quotes[' + i + '][tarif]" placeholder="Tarif DHS/kg (TTC)" required>' +
+                '<button type="button" class="rtw-remove btn small ghost" style="width:fit-content;">Retirer ce devis</button>';
+              box.querySelector('.rtw-remove').addEventListener('click', function() {
+                box.remove();
+                renumber();
+                syncRemoveButtons();
+              });
+              return box;
+            }
+
+            // Bracket indices just need to be present and parseable server-side;
+            // qs (Express's urlencoded parser) sorts numeric keys, so exact
+            // renumbering after a removal isn't required for the array itself
+            // to come through correctly - we do it anyway for cleanliness.
+            function renumber() {
+              var boxes = blocksEl.querySelectorAll('.rtw-quote-block');
+              boxes.forEach(function(box, idx) {
+                box.querySelectorAll('[name]').forEach(function(el) {
+                  el.name = el.name.replace(/quotes\[\d+\]/, 'quotes[' + idx + ']');
+                });
+              });
+              blockCount = boxes.length;
+            }
+
+            function syncRemoveButtons() {
+              var boxes = blocksEl.querySelectorAll('.rtw-quote-block');
+              boxes.forEach(function(box, idx) {
+                var btn = box.querySelector('.rtw-remove');
+                // Always allow removing down to zero blocks in "multiple" mode;
+                // in "single" mode there's only ever one block and no button shown.
+                btn.style.display = (currentMode() === 'multiple' && boxes.length > 1) ? '' : 'none';
+              });
+            }
+
+            function currentMode() {
+              var checked = wrap.querySelector('input[name="rtwMode"]:checked');
+              return checked ? checked.value : 'single';
+            }
+
+            function applyMode() {
+              var boxes = blocksEl.querySelectorAll('.rtw-quote-block');
+              if (currentMode() === 'single') {
+                // Collapse down to exactly one block.
+                for (var k = boxes.length - 1; k > 0; k--) boxes[k].remove();
+                addBtn.style.display = 'none';
+              } else {
+                addBtn.style.display = '';
+              }
+              renumber();
+              syncRemoveButtons();
+            }
+
+            modeRadios.forEach(function(r) { r.addEventListener('change', applyMode); });
+            addBtn.addEventListener('click', function() {
+              blocksEl.appendChild(makeBlock());
+              renumber();
+              syncRemoveButtons();
+            });
+
+            // Start with a single quote block, matching the default "single" mode.
+            blocksEl.appendChild(makeBlock());
+            applyMode();
+          })();
+        </script>
       </div>
 
       <div class="action-box">

@@ -127,9 +127,35 @@ router.post('/clients/:id/ready-to-work', async (req, res) => {
   const client = await prisma.client.findUnique({ where: { id } });
   if (!client) return res.status(404).send('Not found');
 
-  const pricePerKg = req.body.pricePerKg || '—';
-  const result = await notifyClient(client, 'ready_to_work', { pricePerKg });
-  await prisma.event.create({ data: { clientId: id, type: 'ready_to_work', messageSent: result.bothOk } });
+  // req.body.quotes comes in as an array of {airport, company, direct, tarif}
+  // thanks to express.urlencoded({extended:true}) parsing the quotes[0][...]
+  // bracket field names from the form. Support a single object too, in case
+  // only one quote block was ever submitted and the parser collapses it.
+  let quotes = req.body.quotes || [];
+  if (!Array.isArray(quotes)) quotes = [quotes];
+  quotes = quotes
+    .filter(q => q && q.airport && q.company && q.direct && q.tarif)
+    .map(q => ({
+      airport: q.airport.trim(),
+      company: q.company.trim(),
+      direct: q.direct.trim(),
+      tarif: q.tarif
+    }));
+
+  if (quotes.length === 0) {
+    return res.redirect(`/clients/${id}?flash=Aucun devis valide fourni`);
+  }
+
+  // Human-readable one-line-per-quote summary, stored on the Event for the
+  // Historique and reused as the SMS/email template's data.
+  const summary = quotes
+    .map(q => `${q.airport} — ${q.company} — ${q.direct} — ${q.tarif} DHS/kg TTC`)
+    .join(' | ');
+
+  const result = await notifyClient(client, 'ready_to_work', { quotes });
+  await prisma.event.create({
+    data: { clientId: id, type: 'ready_to_work', reason: summary, messageSent: result.bothOk }
+  });
   res.redirect(`/clients/${id}?flash=Message envoyé`);
 });
 
