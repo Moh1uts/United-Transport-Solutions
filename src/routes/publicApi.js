@@ -42,20 +42,31 @@ function checkApiKey(req, res, next) {
 }
 
 // A single box's dimensions coming from the website, cleaned up to
-// {longueur, largeur, hauteur} numbers in cm, or null if incomplete/invalid.
+// {longueur, largeur, hauteur, count} numbers in cm, or null if incomplete/
+// invalid. `count` is the "smart dimensions" x-quantity field next to each
+// package row (identical boxes entered once, e.g. count=3, instead of
+// pasted three times) - defaults to 1, clamped to a sane range so a typo
+// or abuse attempt can't create an absurd number of "boxes" server-side.
 function sanitizeBox(box) {
   if (!box || typeof box !== 'object') return null;
   const longueur = parseFloat(box.longueur);
   const largeur = parseFloat(box.largeur);
   const hauteur = parseFloat(box.hauteur);
   if (!longueur || !largeur || !hauteur) return null;
-  return { longueur, largeur, hauteur };
+  const rawCount = parseInt(box.count, 10);
+  const count = Number.isFinite(rawCount) && rawCount > 1 ? Math.min(rawCount, 500) : 1;
+  return { longueur, largeur, hauteur, count };
 }
 
 router.post('/api/public/quote', rateLimit, checkApiKey, async (req, res) => {
   const b = req.body || {};
 
-  if (!b.name || !b.phone || !b.email || !b.city || !b.destination || !b.nature) {
+  // destinationCity/destinationCountry are the split fields the website's
+  // form now collects (so the dashboard can suggest nearby arrival
+  // airports - see services/airports.js); `destination` is still accepted/
+  // required too, as the combined "City, Country" string every other part
+  // of the app displays.
+  if (!b.name || !b.phone || !b.email || !b.city || !b.destination || !b.nature || !b.destinationCity || !b.destinationCountry) {
     return res.status(400).json({ error: 'Missing required fields' });
   }
 
@@ -78,6 +89,8 @@ router.post('/api/public/quote', rateLimit, checkApiKey, async (req, res) => {
         email: String(b.email).slice(0, 200),
         city: String(b.city).slice(0, 100),
         destination: String(b.destination).slice(0, 200),
+        destinationCity: String(b.destinationCity).slice(0, 100),
+        destinationCountry: String(b.destinationCountry).slice(0, 100),
         nature: String(b.nature).slice(0, 300),
         packages: b.packages ? parseInt(b.packages, 10) || null : null,
         weightKg: b.weightKg ? parseFloat(b.weightKg) || null : null,

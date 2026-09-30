@@ -7,6 +7,7 @@ const { requireLogin } = require('../middleware/auth');
 const { notifyClient } = require('../services/notify');
 const { generateInvoicePdf } = require('../services/invoicePdf');
 const { groupDimensions, formatDimensionGroups } = require('../services/dimensions');
+const { COUNTRIES, getAirportsForCountry } = require('../services/airports');
 
 router.use(requireLogin);
 
@@ -89,11 +90,49 @@ router.get('/finished', async (req, res) => {
 // Manual client creation (phone / email intake)
 // ---------------------------------------------------------------------------
 router.get('/clients/new', (req, res) => {
-  res.render('client_new', { error: null });
+  res.render('client_new', { error: null, countries: COUNTRIES });
 });
+
+// A single box's dimensions coming from the manual creation form's hidden
+// dimensions[N][...] fields (submitted as strings by a plain form POST), or
+// null if incomplete/invalid. `count` is the "smart dimensions" x-quantity
+// field next to each box row - same shape/clamp as src/routes/publicApi.js's
+// sanitizeBox, kept as its own copy here since this route parses form-encoded
+// fields instead of a JSON body.
+function sanitizeBox(box) {
+  if (!box || typeof box !== 'object') return null;
+  const longueur = parseFloat(box.longueur);
+  const largeur = parseFloat(box.largeur);
+  const hauteur = parseFloat(box.hauteur);
+  if (!longueur || !largeur || !hauteur) return null;
+  const rawCount = parseInt(box.count, 10);
+  const count = Number.isFinite(rawCount) && rawCount > 1 ? Math.min(rawCount, 500) : 1;
+  return { longueur, largeur, hauteur, count };
+}
 
 router.post('/clients', async (req, res) => {
   const b = req.body;
+  // "destination" stays the combined "City, Country" string every other
+  // part of the app (invoices, reports, PDFs) already reads - built from
+  // the two split fields so nothing else needs to change. destinationCity/
+  // destinationCountry are only used to suggest nearby arrival airports
+  // (see services/airports.js) on this request's "Prêt à travailler" form.
+  const destinationCity = (b.destinationCity || '').trim();
+  const destinationCountry = (b.destinationCountry || '').trim();
+  const destination = destinationCity && destinationCountry
+    ? `${destinationCity}, ${destinationCountry}`
+    : (b.destination || destinationCity || destinationCountry);
+
+  // b.dimensions arrives as an object keyed "0", "1", ... (express's
+  // urlencoded parser turns the form's dimensions[N][...] hidden fields into
+  // an array-like object) - same "smart dimensions" multi-box + x-quantity
+  // support as the public website's form, see services/dimensions.js for how
+  // it's grouped/displayed afterward.
+  const dimensions = b.dimensions
+    ? Object.values(b.dimensions).map(sanitizeBox).filter(Boolean)
+    : [];
+  const firstBox = dimensions[0] || sanitizeBox({ longueur: b.longueur, largeur: b.largeur, hauteur: b.hauteur });
+
   try {
     const client = await prisma.client.create({
       data: {
@@ -101,13 +140,16 @@ router.post('/clients', async (req, res) => {
         phone: b.phone,
         email: b.email,
         city: b.city,
-        destination: b.destination,
+        destination,
+        destinationCity: destinationCity || null,
+        destinationCountry: destinationCountry || null,
         nature: b.nature,
         packages: b.packages ? parseInt(b.packages, 10) : null,
         weightKg: b.weightKg ? parseFloat(b.weightKg) : null,
-        longueur: b.longueur ? parseFloat(b.longueur) : null,
-        largeur: b.largeur ? parseFloat(b.largeur) : null,
-        hauteur: b.hauteur ? parseFloat(b.hauteur) : null,
+        longueur: firstBox ? firstBox.longueur : null,
+        largeur: firstBox ? firstBox.largeur : null,
+        hauteur: firstBox ? firstBox.hauteur : null,
+        dimensions: dimensions.length > 0 ? dimensions : undefined,
         volume: b.volume || null,
         gerbable: b.gerbable || null,
         ice: b.ice || null,
@@ -126,7 +168,7 @@ router.post('/clients', async (req, res) => {
     res.redirect(`/clients/${client.id}`);
   } catch (err) {
     console.error(err);
-    res.render('client_new', { error: "Impossible de créer la demande. Vérifiez les champs et réessayez." });
+    res.render('client_new', { error: "Impossible de créer la demande. Vérifiez les champs et réessayez.", countries: COUNTRIES });
   }
 });
 
@@ -166,7 +208,13 @@ router.get('/clients/:id', async (req, res) => {
           : [])
   );
 
-  res.render('client_detail', { client, events, invoices, lastEvents, dimGroups, flash: req.query.flash || null });
+  // Suggested arrival airports for the "Prêt à travailler" quote form,
+  // narrowed to this client's destination country when we recognize it
+  // (see services/airports.js) - e.g. Dallas/Fort Worth for a US client
+  // instead of Charles de Gaulle.
+  const suggestedAirports = getAirportsForCountry(client.destinationCountry);
+
+  res.render('client_detail', { client, events, invoices, lastEvents, dimGroups, suggestedAirports, flash: req.query.flash || null });
 });
 
 // ---------------------------------------------------------------------------
