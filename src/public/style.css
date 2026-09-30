@@ -80,6 +80,28 @@ table a.row-link{text-decoration:none; color:var(--navy); font-weight:600;}
 }
 .field-grid .full{grid-column:1/-1;}
 
+/* Multi-box "smart dimensions" rows on the manual client-creation form
+   (client_new.ejs) - mirrors the public website's package list so staff can
+   enter several boxes, each with its own "x" quantity, instead of being
+   limited to one box. min-width:0 on the inputs stops a number input's
+   browser-default intrinsic width from pushing the row past the form edge. */
+.dim-box-row{
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr 70px auto;
+  gap:8px;
+  align-items:center;
+  margin-bottom:8px;
+}
+.dim-box-row input{ min-width:0; width:100%; }
+.dim-box-qty-wrap{ display:flex; align-items:center; gap:3px; min-width:0; }
+.dim-box-qty-x{ color:var(--navy-soft); font-size:14px; font-weight:bold; flex-shrink:0; }
+.dim-box-qty{ text-align:center; padding:8px 4px !important; }
+.dim-box-remove{ flex-shrink:0; white-space:nowrap; }
+@media (max-width:640px){
+  .dim-box-row{ grid-template-columns:1fr 1fr 70px; row-gap:6px; }
+  .dim-box-row .dim-box-remove{ grid-column:1/-1; justify-self:end; }
+}
+
 .error{color:var(--red); margin-bottom:14px;}
 
 .login-wrap{max-width:360px; margin:100px auto; background:#fff; padding:32px; border:1px solid var(--line);}
