@@ -41,9 +41,11 @@ model Client {
   email          String
 
   // Shipment info (matches the quote form / invoice fields)
-  city           String   // departure city in Morocco
-  destination    String
-  nature         String   // nature of goods
+  city               String   // departure city in Morocco
+  destination        String   // combined "City, Country" - kept for display/PDF/report compatibility, auto-built from the two fields below
+  destinationCity    String?  // split out so the dashboard can suggest nearby arrival airports (see services/airports.js) - optional so older rows without it keep working
+  destinationCountry String?  // same reasoning; matched against services/airports.js's country list
+  nature             String   // nature of goods
   packages       Int?
   weightKg       Float?
   longueur       Float?   // cm - single-box entry, or first box when `dimensions` has several
