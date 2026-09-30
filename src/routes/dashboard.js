@@ -24,9 +24,21 @@ function withDimSummary(client) {
 }
 
 // ---------------------------------------------------------------------------
+// Dashboard home - a count per category, each tile linking to that list.
+// This is now the landing page (see "/" below and the nav's logo link).
+// ---------------------------------------------------------------------------
+router.get('/dashboard', async (req, res) => {
+  const grouped = await prisma.client.groupBy({ by: ['status'], _count: { status: true } });
+  const counts = { potential: 0, waiting: 0, active: 0, refused: 0, finished: 0 };
+  grouped.forEach((g) => { counts[g.status] = g._count.status; });
+
+  res.render('dashboard_home', { counts });
+});
+
+// ---------------------------------------------------------------------------
 // List pages
 // ---------------------------------------------------------------------------
-router.get('/', (req, res) => res.redirect('/potential'));
+router.get('/', (req, res) => res.redirect('/dashboard'));
 
 router.get('/potential', async (req, res) => {
   const clients = await prisma.client.findMany({
@@ -204,6 +216,28 @@ router.post('/clients/:id/ready-to-work', async (req, res) => {
     data: { clientId: id, type: 'ready_to_work', reason: summary, messageSent: result.bothOk }
   });
   res.redirect(`/clients/${id}?flash=Devis envoyé — déplacé vers Demandes en Attente`);
+});
+
+// Permanently deletes a request - only ever offered (and only ever allowed
+// here server-side, regardless of what the form might submit) while the
+// request is still "potential" or "waiting": someone we decided not to work
+// with, or who never answered a quote. Once a request is active/refused/
+// finished it has real history (an order, an invoice, a paper trail) and
+// should be moved through the normal status flow instead of erased.
+router.post('/clients/:id/delete', async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const client = await prisma.client.findUnique({ where: { id } });
+  if (!client) return res.status(404).send('Not found');
+
+  if (client.status !== 'potential' && client.status !== 'waiting') {
+    return res.redirect(`/clients/${id}?flash=Suppression impossible : cette demande n'est plus dans Demandes Potentielles ni Demandes en Attente`);
+  }
+
+  const backTo = client.status === 'waiting' ? '/waiting' : '/potential';
+  // Cascades to this client's Events (and any Invoices, though a potential/
+  // waiting request never has one) - see prisma/schema.prisma onDelete.
+  await prisma.client.delete({ where: { id } });
+  res.redirect(backTo);
 });
 
 router.post('/clients/:id/refuse', async (req, res) => {
