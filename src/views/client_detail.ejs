@@ -9,8 +9,9 @@
 <nav class="topnav">
   <div class="wrap">
     <div class="topnav-brand">
-        <img src="/images/logo-white-nav.png" alt="United Transport Solutions">
+        <a href="/dashboard"><img src="/images/logo-white-nav.png" alt="United Transport Solutions"></a>
     </div>
+    <a href="/dashboard">Dashboard</a>
     <a href="/potential">Demandes Potentielles</a>
     <a href="/waiting">Demandes en Attente</a>
     <a href="/active">Demandes Actives</a>
@@ -238,6 +239,14 @@
           <button class="btn red small" type="submit">Envoyer et déplacer vers Refusés</button>
         </form>
       </div>
+
+      <div class="action-box">
+        <h3>🗑️ Supprimer</h3>
+        <p style="font-size:12.5px; color:var(--navy-soft);">On ne souhaite pas travailler avec cette personne. Aucun message n'est envoyé ; la demande est effacée définitivement.</p>
+        <form method="POST" action="/clients/<%= client.id %>/delete" onsubmit="return confirm('Supprimer définitivement cette demande ? Cette action est irréversible.');">
+          <button class="btn red small" type="submit">Supprimer</button>
+        </form>
+      </div>
     </div>
   <% } %>
 
@@ -276,6 +285,14 @@
         <p style="font-size:12.5px; color:var(--navy-soft);">Une fois que le client a confirmé son acceptation.</p>
         <form method="POST" action="/clients/<%= client.id %>/activate">
           <button class="btn small" type="submit">Déplacer vers Actifs</button>
+        </form>
+      </div>
+
+      <div class="action-box">
+        <h3>🗑️ Supprimer</h3>
+        <p style="font-size:12.5px; color:var(--navy-soft);">Le client n'a jamais répondu, ou on ne souhaite plus travailler avec lui. Aucun message n'est envoyé ; la demande est effacée définitivement.</p>
+        <form method="POST" action="/clients/<%= client.id %>/delete" onsubmit="return confirm('Supprimer définitivement cette demande ? Cette action est irréversible.');">
+          <button class="btn red small" type="submit">Supprimer</button>
         </form>
       </div>
     </div>

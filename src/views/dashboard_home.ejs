@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Factures — United Transport Solutions</title>
+<title>Dashboard — United Transport Solutions</title>
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
@@ -11,7 +11,7 @@
     <div class="topnav-brand">
         <a href="/dashboard"><img src="/images/logo-white-nav.png" alt="United Transport Solutions"></a>
     </div>
-    <a href="/dashboard">Dashboard</a>
+    <a href="/dashboard" class="active">Dashboard</a>
     <a href="/potential">Demandes Potentielles</a>
     <a href="/waiting">Demandes en Attente</a>
     <a href="/active">Demandes Actives</a>
@@ -34,32 +34,38 @@
   </div>
 </nav>
 <main class="wrap">
-  <h1>Factures</h1>
-  <p style="color:var(--navy-soft); margin-top:-10px;">
-    Chaque facture jamais générée (via « Envoi arrivé ») est stockée ici de façon permanente — c'est votre dossier de données.
-  </p>
+  <h1>Dashboard</h1>
 
-  <% if (invoices.length === 0) { %>
-    <div class="card">Aucune facture générée pour le moment.</div>
-  <% } else { %>
-    <table>
-      <thead>
-        <tr><th>N° Facture</th><th>Demande</th><th>Date</th><th>Montant TTC</th><th></th><th></th></tr>
-      </thead>
-      <tbody>
-        <% invoices.forEach(inv => { %>
-          <tr>
-            <td><%= inv.invoiceNumber %></td>
-            <td><a class="row-link" href="/clients/<%= inv.clientId %>"><%= inv.client.name %></a></td>
-            <td><%= new Date(inv.createdAt).toLocaleDateString('fr-FR') %></td>
-            <td><%= inv.amountTTC.toFixed(2) %> MAD</td>
-            <td><a href="/invoices/<%= inv.id %>/download">Télécharger</a></td>
-            <td><a href="/invoices/<%= inv.id %>/edit">Modifier</a></td>
-          </tr>
-        <% }) %>
-      </tbody>
-    </table>
-  <% } %>
+  <div class="stat-row">
+    <a class="stat stat-link" href="/potential">
+      <div class="num"><%= counts.potential %></div>
+      <div class="label">DEMANDES POTENTIELLES</div>
+    </a>
+    <a class="stat stat-link" href="/waiting">
+      <div class="num"><%= counts.waiting %></div>
+      <div class="label">DEMANDES EN ATTENTE</div>
+    </a>
+    <a class="stat stat-link" href="/active">
+      <div class="num"><%= counts.active %></div>
+      <div class="label">DEMANDES ACTIVES</div>
+    </a>
+    <a class="stat stat-link" href="/refused">
+      <div class="num"><%= counts.refused %></div>
+      <div class="label">DEMANDES REFUSÉES</div>
+    </a>
+    <a class="stat stat-link" href="/finished">
+      <div class="num"><%= counts.finished %></div>
+      <div class="label">DEMANDES TERMINÉES</div>
+    </a>
+  </div>
+
+  <div class="card">
+    <p style="font-size:13.5px; color:var(--navy-soft); margin:0;">
+      Cliquez sur une catégorie pour voir la liste correspondante. Total :
+      <strong><%= counts.potential + counts.waiting + counts.active + counts.refused + counts.finished %></strong>
+      demande(s).
+    </p>
+  </div>
 </main>
 </body>
 </html>
