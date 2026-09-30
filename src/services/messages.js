@@ -18,6 +18,11 @@
 const COMPANY_NAME = process.env.COMPANY_NAME || 'United Transport Solutions';
 const COMPANY_PHONE = process.env.COMPANY_PHONE || '+212 700-172779';
 const COMPANY_EMAIL = process.env.COMPANY_EMAIL || 'contact@unitedtransportsolutions.com';
+// Base URL of this backend itself (not the marketing website), used to build
+// the Accepter/Refuser links in the ready_to_work email
+// (/respond/:token?action=accept|refuse - see src/routes/publicApi.js). No
+// trailing slash. Falls back to the known Render URL if unset.
+const APP_BASE_URL = (process.env.APP_BASE_URL || 'https://uts-backendrepo.onrender.com').replace(/\/$/, '');
 
 /**
  * Each template function returns { fr, en, ar } — three plain strings.
@@ -91,9 +96,23 @@ const templates = {
     const rowEn = (q) => `${q.company} — ${q.direct === 'Direct' ? 'direct' : 'connecting'} flight to <strong>${q.airport}</strong> — <strong>${q.tarif} DHS/kg</strong> (all taxes included)`;
     const rowAr = (q) => `${q.company} — رحلة ${directAr(q.direct)} إلى <strong>${q.airport}</strong> — <strong>${q.tarif} درهم/كلغ</strong> شامل جميع الضرائب`;
 
+    // Accepter / Refuser buttons - only shown when a responseToken was
+    // generated (see dashboard.js POST /clients/:id/ready-to-work). Clicking
+    // either one hits the public, no-login /respond/:token route and records
+    // the client's answer, visible in Demandes en Attente (see publicApi.js).
+    // Left out entirely if no token is present, so older call sites (or a
+    // resend that somehow lost the token) still produce a valid email.
+    const buttonsHtml = data.responseToken ? (() => {
+      const acceptUrl = `${APP_BASE_URL}/respond/${data.responseToken}?action=accept`;
+      const refuseUrl = `${APP_BASE_URL}/respond/${data.responseToken}?action=refuse`;
+      const btn = (url, label, bg) =>
+        `<a href="${url}" style="display:inline-block; margin:4px 8px 4px 0; padding:10px 22px; background:${bg}; color:#ffffff; font-family:Arial,sans-serif; font-size:14px; font-weight:bold; text-decoration:none; border-radius:5px;">${label}</a>`;
+      return `<div style="margin:14px 0 4px;">${btn(acceptUrl, 'Accepter / Accept / أوافق', '#2e7d32')}${btn(refuseUrl, 'Refuser / Decline / أرفض', '#B7402F')}</div>`;
+    })() : '';
+
     const emailFr = n > 1
-      ? `<p style="margin:0 0 10px;">${introFr}</p><ol style="margin:0 0 10px; padding-left:20px;">${quotes.map(q => listItem(rowFr(q))).join('')}</ol><p style="margin:0;">${closingFr}</p>`
-      : `<p style="margin:0;">${fr}</p>`;
+      ? `<p style="margin:0 0 10px;">${introFr}</p><ol style="margin:0 0 10px; padding-left:20px;">${quotes.map(q => listItem(rowFr(q))).join('')}</ol><p style="margin:0;">${closingFr}</p>${buttonsHtml}`
+      : `<p style="margin:0;">${fr}</p>${buttonsHtml}`;
     const emailEn = n > 1
       ? `<p style="margin:0 0 10px;">${introEn}</p><ol style="margin:0 0 10px; padding-left:20px;">${quotes.map(q => listItem(rowEn(q))).join('')}</ol><p style="margin:0;">${closingEn}</p>`
       : `<p style="margin:0;">${en}</p>`;
