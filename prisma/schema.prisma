@@ -24,9 +24,13 @@ model AdminUser {
 }
 
 // ---------------------------------------------------------------------------
-// Clients move through exactly one status at a time:
-//   potential -> active -> (stays active, order lifecycle tracked via events)
+// Demandes (client requests) move through exactly one status at a time:
+//   potential -> waiting -> active -> (stays active, order lifecycle tracked via events)
 //   potential -> refused
+//   waiting -> active   (once we manually confirm the client accepted)
+// "waiting" = Demande en Attente: the tarif has been sent (ready_to_work)
+// and we're waiting on the client themselves to accept/refuse (see
+// clientResponse below) before manually moving them to Demandes Actives.
 // ---------------------------------------------------------------------------
 model Client {
   id             Int      @id @default(autoincrement())
@@ -42,9 +46,17 @@ model Client {
   nature         String   // nature of goods
   packages       Int?
   weightKg       Float?
-  longueur       Float?   // cm
+  longueur       Float?   // cm - single-box entry, or first box when `dimensions` has several
   largeur        Float?   // cm
   hauteur        Float?   // cm
+  // Multi-box quotes from the website's "+" button: an array of
+  // {longueur, largeur, hauteur} (cm), one entry per box, in the order the
+  // client entered them. Null/empty for a plain single-box quote, where the
+  // longueur/largeur/hauteur columns above are used instead. See
+  // services/dimensions.js for the "smart dimensions" grouping (identical
+  // boxes collapse into one line shown as "x2", "x3", ...) used everywhere
+  // this is displayed.
+  dimensions     Json?
   volume         String?  // m³, auto-computed on the website from longueur x largeur x hauteur
   gerbable       String?  // "Oui" | "Non" - whether the goods can be stacked
   ice            String?  // Moroccan business tax ID, optional
@@ -52,7 +64,7 @@ model Client {
   notes          String?
 
   source         String   // "website" | "manual"
-  status         String   @default("potential") // "potential" | "active" | "refused" | "finished"
+  status         String   @default("potential") // "potential" | "waiting" | "active" | "refused" | "finished"
   refusalReason  String?
   outcome        String?  // "success" | "failed" - set when status becomes "finished"
   outcomeReason  String?  // used when outcome = "failed"
@@ -60,6 +72,18 @@ model Client {
   // Set once the order ships - reused automatically when generating the invoice
   flightNumber   String?
   lta            String?
+
+  // The client's own answer to the "Nous sommes prêts" quote, clicked from
+  // the Accepter/Refuser links in that email. Purely informational - it
+  // does NOT move the client to Demandes Actives by itself; that's still a
+  // manual "Déplacer vers Demandes Actives" click once you've seen it.
+  clientResponse   String?   // null (no answer yet) | "accepted" | "refused"
+  clientResponseAt DateTime?
+  // Random token embedded in the Accepter/Refuser email links, so they work
+  // without the client logging in. Re-generated every time a tarif is
+  // (re)sent, so an old email's buttons stop working once a newer quote
+  // goes out. Null until the first "Prêt à travailler" send.
+  responseToken    String?   @unique
 
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -81,7 +105,8 @@ model Event {
   // one of:
   // quote_received, ready_to_work, refused, rewake, moved_active,
   // order_received, order_shipped, order_arrived, order_late,
-  // order_problem, order_cancelled, invite_back_same, invite_back_other
+  // order_problem, order_cancelled, invite_back_same, invite_back_other,
+  // client_accepted, client_refused (client's own Accepter/Refuser click)
 
   reason         String?  // used by: refused, order_late, order_problem, order_cancelled
   trackingNumber String?  // used by: order_shipped
