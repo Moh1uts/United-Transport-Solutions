@@ -36,6 +36,15 @@
 <main class="wrap">
   <h1><%= title %> <span class="badge <%= category %>"><%= clients.length %></span></h1>
 
+  <% if (typeof flash !== 'undefined' && flash) { %><div class="flash"><%= flash %></div><% } %>
+
+  <% if (category === 'potential') { %>
+    <form method="POST" action="/admin/move-quoted-to-waiting" style="margin-bottom:16px;"
+          onsubmit="return confirm('Déplacer vers Demandes en Attente toutes les demandes potentielles qui ont déjà reçu un devis ? Cette action ne touche pas les autres.');">
+      <button class="btn ghost small" type="submit">Déplacer les demandes déjà quotées vers « Attente »</button>
+    </form>
+  <% } %>
+
   <% if (clients.length === 0) { %>
     <div class="card">Aucune demande dans cette catégorie pour le moment.</div>
   <% } else { %>
