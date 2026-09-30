@@ -49,31 +49,6 @@ router.get('/potential', async (req, res) => {
   res.render('dashboard_list', { clients: clients.map(withDimSummary), category: 'potential', title: 'Demandes Potentielles', flash: req.query.flash || null });
 });
 
-// One-click version of scripts/move-quoted-to-waiting.js, for when using
-// Render's Shell tab isn't practical (copy/paste issues, etc). Same exact
-// logic: any "potential" request that already has a "ready_to_work" event
-// (a tarif was sent) moves to "waiting", with a fresh response token.
-// Shown as a button at the top of Demandes Potentielles, only when there's
-// something to move.
-router.post('/admin/move-quoted-to-waiting', async (req, res) => {
-  const candidates = await prisma.client.findMany({
-    where: { status: 'potential', events: { some: { type: 'ready_to_work' } } }
-  });
-
-  for (const client of candidates) {
-    const responseToken = crypto.randomBytes(24).toString('hex');
-    await prisma.client.update({
-      where: { id: client.id },
-      data: { status: 'waiting', responseToken, clientResponse: null, clientResponseAt: null }
-    });
-  }
-
-  const flash = candidates.length === 0
-    ? 'Rien à déplacer — aucune demande potentielle avec un devis déjà envoyé'
-    : `${candidates.length} demande(s) déplacée(s) vers Demandes en Attente`;
-  res.redirect(`/potential?flash=${encodeURIComponent(flash)}`);
-});
-
 // Requests where the tarif has already been sent (ready-to-work) and we're
 // waiting on the client to accept or refuse before moving them to Demandes
 // Actives. See the /clients/:id/ready-to-work handler below, which is what
