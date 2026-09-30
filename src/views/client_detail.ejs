@@ -11,10 +11,11 @@
     <div class="topnav-brand">
         <img src="/images/logo-white-nav.png" alt="United Transport Solutions">
     </div>
-    <a href="/potential">Clients Potentiels</a>
-    <a href="/active">Clients Actifs</a>
-    <a href="/refused">Clients Refusés</a>
-    <a href="/finished">Clients Terminés</a>
+    <a href="/potential">Demandes Potentielles</a>
+    <a href="/waiting">Demandes en Attente</a>
+    <a href="/active">Demandes Actives</a>
+    <a href="/refused">Demandes Refusées</a>
+    <a href="/finished">Demandes Terminées</a>
     <a href="/invoices">Factures</a>
     <details class="nav-dropdown">
       <summary>Rapports</summary>
@@ -25,7 +26,7 @@
         <a href="/rapport-recouvrement">Recouvrement</a>
       </div>
     </details>
-    <a href="/clients/new">+ Ajouter un client</a>
+    <a href="/clients/new">+ Ajouter une demande</a>
     <a href="/settings" style="opacity:0.6;">Réglages</a>
     <a href="/monthly-archives" style="position:relative; text-decoration:none; margin-right:10px; font-size:18px;" title="Archives mensuelles">🔔<% if (typeof unreadArchive !== 'undefined' && unreadArchive) { %><span style="position:absolute; top:-2px; right:-2px; width:8px; height:8px; background:#e53935; border-radius:50%; display:inline-block; border:1.5px solid #fff;"></span><% } %></a>
     <form method="POST" action="/logout"><button class="logout">Déconnexion</button></form>
@@ -34,7 +35,10 @@
 <main class="wrap">
   <% if (flash) { %><div class="flash"><%= flash %></div><% } %>
 
-  <h1><%= client.name %> <span class="badge <%= client.status %>"><%= client.status %></span></h1>
+  <%
+    const statusLabels = { potential: 'Potentielle', waiting: 'En Attente', active: 'Active', refused: 'Refusée', finished: 'Terminée' };
+  %>
+  <h1><%= client.name %> <span class="badge <%= client.status %>"><%= statusLabels[client.status] || client.status %></span></h1>
 
   <div class="card">
     <div class="field-grid">
@@ -44,7 +48,20 @@
       <div><label>Nature de la marchandise</label><%= client.nature %></div>
       <div><label>Colis</label><%= client.packages ?? '—' %></div>
       <div><label>Poids brut</label><%= client.weightKg ? client.weightKg + ' kg' : '—' %></div>
-      <div><label>Dimensions (L x l x H, cm)</label><%= (client.longueur && client.largeur && client.hauteur) ? `${client.longueur} x ${client.largeur} x ${client.hauteur}` : '—' %></div>
+      <div class="<%= dimGroups.length > 1 ? 'full' : '' %>">
+        <label>Dimensions (L x l x H, cm)</label>
+        <% if (dimGroups.length === 0) { %>
+          —
+        <% } else if (dimGroups.length === 1) { %>
+          <%= dimGroups[0].longueur %> x <%= dimGroups[0].largeur %> x <%= dimGroups[0].hauteur %><%= dimGroups[0].count > 1 ? ` x${dimGroups[0].count}` : '' %>
+        <% } else { %>
+          <ul style="margin:4px 0 0; padding-left:18px;">
+            <% dimGroups.forEach(g => { %>
+              <li><%= g.longueur %> x <%= g.largeur %> x <%= g.hauteur %> cm<% if (g.count > 1) { %> <strong>x<%= g.count %></strong><% } %></li>
+            <% }) %>
+          </ul>
+        <% } %>
+      </div>
       <div><label>Volume</label><%= client.volume ? client.volume + ' m³' : '—' %></div>
       <div><label>Gerbable</label><%= client.gerbable || '—' %></div>
       <div><label>ICE</label><%= client.ice || '—' %></div>
@@ -221,6 +238,23 @@
           <button class="btn red small" type="submit">Envoyer et déplacer vers Refusés</button>
         </form>
       </div>
+    </div>
+  <% } %>
+
+  <% if (client.status === 'waiting') { %>
+    <h2>Actions</h2>
+    <div class="action-grid">
+      <div class="action-box">
+        <h3>Réponse du client</h3>
+        <p style="font-size:12.5px; color:var(--navy-soft);">Enregistrée automatiquement quand le client clique Accepter/Refuser dans l'email "Nous sommes prêts".</p>
+        <% if (!client.clientResponse) { %>
+          <div class="sent-note" style="color:var(--navy-soft);">⏳ Pas encore de réponse</div>
+        <% } else if (client.clientResponse === 'accepted') { %>
+          <div class="sent-note" style="color:var(--green, #2e7d32);">✅ Le client a accepté<% if (client.clientResponseAt) { %> — <%= new Date(client.clientResponseAt).toLocaleString('fr-FR') %><% } %></div>
+        <% } else { %>
+          <div class="sent-note" style="color:var(--red, #c62828);">✖️ Le client a refusé<% if (client.clientResponseAt) { %> — <%= new Date(client.clientResponseAt).toLocaleString('fr-FR') %><% } %></div>
+        <% } %>
+      </div>
 
       <div class="action-box">
         <h3>🔔 Relance (pas de réponse)</h3>
@@ -238,7 +272,7 @@
       </div>
 
       <div class="action-box">
-        <h3>➡️ Déplacer vers Clients Actifs</h3>
+        <h3>➡️ Déplacer vers Demandes Actives</h3>
         <p style="font-size:12.5px; color:var(--navy-soft);">Une fois que le client a confirmé son acceptation.</p>
         <form method="POST" action="/clients/<%= client.id %>/activate">
           <button class="btn small" type="submit">Déplacer vers Actifs</button>
@@ -530,7 +564,7 @@
       </div>
 
       <div class="action-box">
-        <h3>3. ↩️ Remettre en Clients Actifs</h3>
+        <h3>3. ↩️ Remettre en Demandes Actives</h3>
         <p style="font-size:12.5px; color:var(--navy-soft);">Le client a accepté de revenir — aucun message n'est envoyé, juste un changement de catégorie.</p>
         <form method="POST" action="/clients/<%= client.id %>/activate">
           <button class="btn small" type="submit">Remettre en Actifs</button>

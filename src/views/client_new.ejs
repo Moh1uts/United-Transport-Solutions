@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Ajouter un client — United Transport Solutions</title>
+<title>Ajouter une demande — United Transport Solutions</title>
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
@@ -11,10 +11,11 @@
     <div class="topnav-brand">
         <img src="/images/logo-white-nav.png" alt="United Transport Solutions">
     </div>
-    <a href="/potential">Clients Potentiels</a>
-    <a href="/active">Clients Actifs</a>
-    <a href="/refused">Clients Refusés</a>
-    <a href="/finished">Clients Terminés</a>
+    <a href="/potential">Demandes Potentielles</a>
+    <a href="/waiting">Demandes en Attente</a>
+    <a href="/active">Demandes Actives</a>
+    <a href="/refused">Demandes Refusées</a>
+    <a href="/finished">Demandes Terminées</a>
     <a href="/invoices">Factures</a>
     <details class="nav-dropdown">
       <summary>Rapports</summary>
@@ -25,17 +26,17 @@
         <a href="/rapport-recouvrement">Recouvrement</a>
       </div>
     </details>
-    <a href="/clients/new">+ Ajouter un client</a>
+    <a href="/clients/new">+ Ajouter une demande</a>
     <a href="/settings" style="opacity:0.6;">Réglages</a>
     <a href="/monthly-archives" style="position:relative; text-decoration:none; margin-right:10px; font-size:18px;" title="Archives mensuelles">🔔<% if (typeof unreadArchive !== 'undefined' && unreadArchive) { %><span style="position:absolute; top:-2px; right:-2px; width:8px; height:8px; background:#e53935; border-radius:50%; display:inline-block; border:1.5px solid #fff;"></span><% } %></a>
     <form method="POST" action="/logout"><button class="logout">Déconnexion</button></form>
   </div>
 </nav>
 <main class="wrap">
-  <h1>Ajouter un client (réception par téléphone / email)</h1>
+  <h1>Ajouter une demande (réception par téléphone / email)</h1>
   <p style="color:var(--navy-soft); margin-top:-10px;">
     Utilisez ce formulaire lorsqu'un client vous appelle ou vous écrit directement, sans passer par le site web.
-    Il sera ajouté aux <strong>Clients Potentiels</strong> et recevra automatiquement la confirmation
+    Elle sera ajoutée aux <strong>Demandes Potentielles</strong> et recevra automatiquement la confirmation
     « devis reçu » par SMS et email.
   </p>
 
@@ -77,7 +78,7 @@
       <div><label>ICE (si société)</label><input name="ice"></div>
       <div class="full"><label>Notes</label><textarea name="notes"></textarea></div>
     </div>
-    <button class="btn" type="submit" style="margin-top:16px;">Ajouter le client et envoyer la confirmation</button>
+    <button class="btn" type="submit" style="margin-top:16px;">Ajouter la demande et envoyer la confirmation</button>
   </form>
 </main>
 <script>

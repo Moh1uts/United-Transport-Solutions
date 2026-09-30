@@ -11,10 +11,11 @@
     <div class="topnav-brand">
         <img src="/images/logo-white-nav.png" alt="United Transport Solutions">
     </div>
-    <a href="/potential">Clients Potentiels</a>
-    <a href="/active">Clients Actifs</a>
-    <a href="/refused">Clients Refusés</a>
-    <a href="/finished">Clients Terminés</a>
+    <a href="/potential">Demandes Potentielles</a>
+    <a href="/waiting">Demandes en Attente</a>
+    <a href="/active">Demandes Actives</a>
+    <a href="/refused">Demandes Refusées</a>
+    <a href="/finished">Demandes Terminées</a>
     <a href="/invoices">Factures</a>
     <details class="nav-dropdown">
       <summary>Rapports</summary>
@@ -25,7 +26,7 @@
         <a href="/rapport-recouvrement">Recouvrement</a>
       </div>
     </details>
-    <a href="/clients/new">+ Ajouter un client</a>
+    <a href="/clients/new">+ Ajouter une demande</a>
     <a href="/settings" style="opacity:0.6;">Réglages</a>
     <a href="/monthly-archives" style="position:relative; text-decoration:none; margin-right:10px; font-size:18px;" title="Archives mensuelles">🔔<% if (typeof unreadArchive !== 'undefined' && unreadArchive) { %><span style="position:absolute; top:-2px; right:-2px; width:8px; height:8px; background:#e53935; border-radius:50%; display:inline-block; border:1.5px solid #fff;"></span><% } %></a>
     <form method="POST" action="/logout"><button class="logout">Déconnexion</button></form>
@@ -47,7 +48,7 @@
       <thead>
         <tr>
           <th>Ordre Facture</th><th>LTA</th><th>Fournisseur</th><th>Date</th><th>Colis</th>
-          <th>Poids Kg</th><th>Poids Vol</th><th>Nature</th><th>Dest</th><th>Client</th>
+          <th>Poids Kg</th><th>Poids Vol</th><th>Nature</th><th>Dest</th><th>Demande</th>
           <th>Tarif AF</th><th>Tarif UTS</th><th>Fact Comp</th><th>Fact Nego/Autre</th>
           <th>Facturation UTS</th><th>Nette UTS</th><th>Autre Frais</th>
           <th>Statut</th><th>Mode Régl.</th><th>Date Régl.</th>

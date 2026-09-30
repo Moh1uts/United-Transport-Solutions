@@ -11,10 +11,11 @@
     <div class="topnav-brand">
         <img src="/images/logo-white-nav.png" alt="United Transport Solutions">
     </div>
-    <a href="/potential">Clients Potentiels</a>
-    <a href="/active">Clients Actifs</a>
-    <a href="/refused">Clients Refusés</a>
-    <a href="/finished">Clients Terminés</a>
+    <a href="/potential">Demandes Potentielles</a>
+    <a href="/waiting">Demandes en Attente</a>
+    <a href="/active">Demandes Actives</a>
+    <a href="/refused">Demandes Refusées</a>
+    <a href="/finished">Demandes Terminées</a>
     <a href="/invoices">Factures</a>
     <details class="nav-dropdown">
       <summary>Rapports</summary>
@@ -25,7 +26,7 @@
         <a href="/rapport-recouvrement">Recouvrement</a>
       </div>
     </details>
-    <a href="/clients/new">+ Ajouter un client</a>
+    <a href="/clients/new">+ Ajouter une demande</a>
     <a href="/settings" style="opacity:0.6;">Réglages</a>
     <a href="/monthly-archives" style="position:relative; text-decoration:none; margin-right:10px; font-size:18px;" title="Archives mensuelles">🔔<% if (typeof unreadArchive !== 'undefined' && unreadArchive) { %><span style="position:absolute; top:-2px; right:-2px; width:8px; height:8px; background:#e53935; border-radius:50%; display:inline-block; border:1.5px solid #fff;"></span><% } %></a>
     <form method="POST" action="/logout"><button class="logout">Déconnexion</button></form>
@@ -35,7 +36,7 @@
   <h1><%= title %> <span class="badge <%= category %>"><%= clients.length %></span></h1>
 
   <% if (clients.length === 0) { %>
-    <div class="card">Aucun client dans cette catégorie pour le moment.</div>
+    <div class="card">Aucune demande dans cette catégorie pour le moment.</div>
   <% } else { %>
     <table>
       <thead>
@@ -45,6 +46,8 @@
           <th>Email</th>
           <th>Trajet</th>
           <th>Nature</th>
+          <th>Dimensions</th>
+          <% if (category === 'waiting') { %><th>Réponse client</th><% } %>
           <th>Source</th>
           <% if (category === 'finished') { %><th>Résultat</th><th>Facture(s) / Payé</th><% } %>
           <th>Reçu le</th>
@@ -58,6 +61,18 @@
             <td><%= c.email %></td>
             <td><%= c.city %> → <%= c.destination %></td>
             <td><%= c.nature %></td>
+            <td style="font-size:12.5px;"><%= c.dimSummary %></td>
+            <% if (category === 'waiting') { %>
+              <td>
+                <% if (!c.clientResponse) { %>
+                  <span style="color:var(--navy-soft); font-size:12.5px;">⏳ En attente</span>
+                <% } else if (c.clientResponse === 'accepted') { %>
+                  <span style="color:var(--green, #2e7d32); font-size:12.5px;">✅ Accepté</span>
+                <% } else { %>
+                  <span style="color:var(--red, #c62828); font-size:12.5px;">✖️ Refusé</span>
+                <% } %>
+              </td>
+            <% } %>
             <td><%= c.source %></td>
             <% if (category === 'finished') { %>
               <td>
