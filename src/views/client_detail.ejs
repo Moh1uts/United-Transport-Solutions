@@ -109,27 +109,16 @@
           <button class="btn <%= lastEvents.ready_to_work ? '' : 'green' %> small" type="submit"><%= lastEvents.ready_to_work ? 'Renvoyer' : 'Envoyer' %></button>
         </form>
 
+        <!-- Narrowed to this client's destination country when we recognize
+             it (services/airports.js) - e.g. Dallas/Fort Worth for a US
+             client, not Paris CDG. Falls back to every airport for older
+             requests with no destinationCountry on file. Still free text
+             (not a locked dropdown), so staff can always type an airport
+             that isn't in the suggested list. -->
         <datalist id="rtwAirports">
-          <option value="Paris - Charles de Gaulle (CDG)">
-          <option value="Paris - Orly (ORY)">
-          <option value="Lyon - Saint-Exupéry (LYS)">
-          <option value="Marseille Provence (MRS)">
-          <option value="Bruxelles (BRU)">
-          <option value="Amsterdam - Schiphol (AMS)">
-          <option value="Francfort (FRA)">
-          <option value="Madrid - Barajas (MAD)">
-          <option value="Barcelone - El Prat (BCN)">
-          <option value="Milan - Malpensa (MXP)">
-          <option value="Rome - Fiumicino (FCO)">
-          <option value="Londres - Heathrow (LHR)">
-          <option value="Genève (GVA)">
-          <option value="Budapest - Ferenc Liszt (BUD)">
-          <option value="Montréal - Trudeau (YUL)">
-          <option value="Toronto - Pearson (YYZ)">
-          <option value="New York - JFK (JFK)">
-          <option value="Dubaï (DXB)">
-          <option value="Istanbul (IST)">
-          <option value="Doha - Hamad (DOH)">
+          <% suggestedAirports.forEach(a => { %>
+            <option value="<%= a %>">
+          <% }) %>
         </datalist>
         <datalist id="rtwAirlines">
           <option value="Air France">

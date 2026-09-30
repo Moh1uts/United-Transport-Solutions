@@ -59,15 +59,146 @@
           <option value="Autre">Autre</option>
         </select>
       </div>
-      <div><label>Destination *</label><input name="destination" required></div>
+      <div><label>Ville de destination *</label><input name="destinationCity" required></div>
+      <div>
+        <label>Pays de destination *</label>
+        <select name="destinationCountry" id="newDestCountry" required>
+          <option value="">-- Sélectionner --</option>
+          <% countries.forEach(c => { %>
+            <option value="<%= c %>"><%= c %></option>
+          <% }) %>
+        </select>
+        <input name="destinationCountryOther" id="newDestCountryOther" placeholder="Préciser le pays" style="display:none; margin-top:6px;">
+      </div>
       <div><label>Date d'expédition souhaitée</label><input type="date" name="preferredDate"></div>
+      <script>
+        // "Autre" reveals a free-text field so a country outside the
+        // curated airport list (services/airports.js) can still be typed -
+        // its value is swapped into destinationCountry on submit, below.
+        (function() {
+          var sel = document.getElementById('newDestCountry');
+          var other = document.getElementById('newDestCountryOther');
+          sel.addEventListener('change', function() {
+            other.style.display = sel.value === 'Autre' ? '' : 'none';
+          });
+          var form = sel.closest('form');
+          form.addEventListener('submit', function() {
+            if (sel.value === 'Autre' && other.value.trim()) sel.value = other.value.trim();
+          });
+        })();
+      </script>
       <div class="full"><label>Nature de la marchandise *</label><input name="nature" required></div>
       <div><label>Nombre de colis</label><input type="number" name="packages" min="1"></div>
       <div><label>Poids brut (kg)</label><input type="number" name="weightKg" min="0"></div>
-      <div><label>Longueur (cm)</label><input type="number" step="0.1" min="0" name="longueur" id="dimLongueur"></div>
-      <div><label>Largeur (cm)</label><input type="number" step="0.1" min="0" name="largeur" id="dimLargeur"></div>
-      <div><label>Hauteur (cm)</label><input type="number" step="0.1" min="0" name="hauteur" id="dimHauteur"></div>
-      <div><label>Volume (m³)</label><input name="volume" id="dimVolume" readonly style="background:#f2f2f2;"></div>
+      <div class="full">
+        <label>Dimensions (une ligne par colis) *</label>
+        <p style="font-size:12px; color:var(--navy-soft); margin:-2px 0 6px;">Colis identiques ? Entrez la taille une seule fois et indiquez la quantité avec le champ ×.</p>
+        <div id="dimBoxesWrap"></div>
+        <button type="button" class="btn ghost small" id="dimAddBoxBtn" style="margin-top:4px;">+ Ajouter un colis</button>
+      </div>
+      <div><label>Volume total (m³)</label><input name="volume" id="dimVolume" readonly style="background:#f2f2f2;"></div>
+      <script>
+        // Same "smart dimensions" box list as the public website's quote
+        // form (uts-frontend/index.html's regBox* functions) - several
+        // boxes, each with its own "×" quantity so identical boxes don't
+        // need to be entered one by one. Submits as dimensions[N][...]
+        // fields, parsed server-side in src/routes/dashboard.js (POST
+        // /clients), same shape the website sends as JSON.
+        (function() {
+          let boxCount = 0;
+
+          function boxRowHtml(idx) {
+            return '' +
+              '<div class="dim-box-row" data-box="' + idx + '">' +
+                '<input type="number" class="dim-box-l" min="0" step="0.1" placeholder="Longueur (cm)">' +
+                '<input type="number" class="dim-box-w" min="0" step="0.1" placeholder="Largeur (cm)">' +
+                '<input type="number" class="dim-box-h" min="0" step="0.1" placeholder="Hauteur (cm)">' +
+                '<span class="dim-box-qty-wrap" title="Nombre de colis identiques de cette taille">' +
+                  '<span class="dim-box-qty-x">×</span>' +
+                  '<input type="number" class="dim-box-qty" min="1" step="1" value="1">' +
+                '</span>' +
+                '<button type="button" class="dim-box-remove btn small ghost" title="Retirer">✕</button>' +
+              '</div>';
+          }
+
+          function syncRemoveButtons() {
+            const rows = document.getElementById('dimBoxesWrap').querySelectorAll('.dim-box-row');
+            rows.forEach(row => {
+              row.querySelector('.dim-box-remove').style.display = rows.length > 1 ? '' : 'none';
+            });
+          }
+
+          function recomputeVolume() {
+            const volumeEl = document.getElementById('dimVolume');
+            let total = 0, any = false;
+            readBoxes().forEach(b => {
+              const l = parseFloat(b.longueur) || 0, w = parseFloat(b.largeur) || 0, h = parseFloat(b.hauteur) || 0;
+              if (l > 0 && w > 0 && h > 0) {
+                total += (l * w * h / 1000000) * b.count;
+                any = true;
+              }
+            });
+            volumeEl.value = any ? total.toFixed(3) : '';
+          }
+
+          function addBox() {
+            const wrap = document.getElementById('dimBoxesWrap');
+            const row = document.createElement('div');
+            row.innerHTML = boxRowHtml(boxCount++);
+            const el = row.firstElementChild;
+            wrap.appendChild(el);
+            el.querySelectorAll('input').forEach(inp => {
+              inp.addEventListener('input', recomputeVolume);
+              inp.addEventListener('change', recomputeVolume);
+            });
+            el.querySelector('.dim-box-remove').addEventListener('click', () => {
+              const rows = wrap.querySelectorAll('.dim-box-row');
+              if (rows.length <= 1) return;
+              el.remove();
+              syncRemoveButtons();
+              recomputeVolume();
+            });
+            syncRemoveButtons();
+            recomputeVolume();
+          }
+
+          function readBoxes() {
+            const rows = document.getElementById('dimBoxesWrap').querySelectorAll('.dim-box-row');
+            const boxes = [];
+            rows.forEach(row => {
+              const l = row.querySelector('.dim-box-l').value.trim();
+              const w = row.querySelector('.dim-box-w').value.trim();
+              const h = row.querySelector('.dim-box-h').value.trim();
+              const qtyRaw = parseInt(row.querySelector('.dim-box-qty').value, 10);
+              const count = Number.isFinite(qtyRaw) && qtyRaw > 1 ? qtyRaw : 1;
+              if (l || w || h) boxes.push({ longueur: l, largeur: w, hauteur: h, count });
+            });
+            return boxes;
+          }
+
+          document.getElementById('dimAddBoxBtn').addEventListener('click', addBox);
+          addBox(); // start with a single box row
+
+          // On submit, turn the box rows into hidden dimensions[N][...]
+          // fields (a plain form POST can't submit a JS array directly) -
+          // one hidden input per field per box, reindexed contiguously so
+          // express's body parser builds a clean array server-side.
+          const form = document.getElementById('dimAddBoxBtn').closest('form');
+          form.addEventListener('submit', function() {
+            form.querySelectorAll('input[data-dim-hidden]').forEach(el => el.remove());
+            readBoxes().forEach((b, i) => {
+              ['longueur', 'largeur', 'hauteur', 'count'].forEach(key => {
+                const hidden = document.createElement('input');
+                hidden.type = 'hidden';
+                hidden.setAttribute('data-dim-hidden', '1');
+                hidden.name = 'dimensions[' + i + '][' + key + ']';
+                hidden.value = b[key];
+                form.appendChild(hidden);
+              });
+            });
+          });
+        })();
+      </script>
       <div>
         <label>Marchandise gerbable ?</label>
         <select name="gerbable">
@@ -82,16 +213,5 @@
     <button class="btn" type="submit" style="margin-top:16px;">Ajouter la demande et envoyer la confirmation</button>
   </form>
 </main>
-<script>
-  function recomputeDimVolume(){
-    const num = id => parseFloat(document.getElementById(id).value) || 0;
-    const l = num('dimLongueur'), w = num('dimLargeur'), h = num('dimHauteur');
-    const volumeEl = document.getElementById('dimVolume');
-    volumeEl.value = (l > 0 && w > 0 && h > 0) ? ((l * w * h) / 1000000).toFixed(3) : '';
-  }
-  ['dimLongueur','dimLargeur','dimHauteur'].forEach(id => {
-    document.getElementById(id).addEventListener('input', recomputeDimVolume);
-  });
-</script>
 </body>
 </html>
