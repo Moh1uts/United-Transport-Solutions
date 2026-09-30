@@ -41,12 +41,34 @@ function checkApiKey(req, res, next) {
   next();
 }
 
+// A single box's dimensions coming from the website, cleaned up to
+// {longueur, largeur, hauteur} numbers in cm, or null if incomplete/invalid.
+function sanitizeBox(box) {
+  if (!box || typeof box !== 'object') return null;
+  const longueur = parseFloat(box.longueur);
+  const largeur = parseFloat(box.largeur);
+  const hauteur = parseFloat(box.hauteur);
+  if (!longueur || !largeur || !hauteur) return null;
+  return { longueur, largeur, hauteur };
+}
+
 router.post('/api/public/quote', rateLimit, checkApiKey, async (req, res) => {
   const b = req.body || {};
 
   if (!b.name || !b.phone || !b.email || !b.city || !b.destination || !b.nature) {
     return res.status(400).json({ error: 'Missing required fields' });
   }
+
+  // The website's "+" button lets a visitor list several boxes at once -
+  // b.dimensions arrives as an array of {longueur, largeur, hauteur} (cm).
+  // We keep the legacy single longueur/largeur/hauteur columns in sync with
+  // the first box too, purely so older reports/exports that only know about
+  // those columns still show something sensible; `dimensions` (JSON) is the
+  // source of truth whenever there's more than one box.
+  const dimensions = Array.isArray(b.dimensions)
+    ? b.dimensions.map(sanitizeBox).filter(Boolean)
+    : [];
+  const firstBox = dimensions[0] || sanitizeBox({ longueur: b.longueur, largeur: b.largeur, hauteur: b.hauteur });
 
   try {
     const client = await prisma.client.create({
@@ -59,9 +81,10 @@ router.post('/api/public/quote', rateLimit, checkApiKey, async (req, res) => {
         nature: String(b.nature).slice(0, 300),
         packages: b.packages ? parseInt(b.packages, 10) || null : null,
         weightKg: b.weightKg ? parseFloat(b.weightKg) || null : null,
-        longueur: b.longueur ? parseFloat(b.longueur) || null : null,
-        largeur: b.largeur ? parseFloat(b.largeur) || null : null,
-        hauteur: b.hauteur ? parseFloat(b.hauteur) || null : null,
+        longueur: firstBox ? firstBox.longueur : null,
+        largeur: firstBox ? firstBox.largeur : null,
+        hauteur: firstBox ? firstBox.hauteur : null,
+        dimensions: dimensions.length > 0 ? dimensions : undefined,
         volume: b.volume ? String(b.volume).slice(0, 100) : null,
         gerbable: b.gerbable ? String(b.gerbable).slice(0, 10) : null,
         ice: b.ice ? String(b.ice).slice(0, 50) : null,
@@ -86,6 +109,45 @@ router.post('/api/public/quote', rateLimit, checkApiKey, async (req, res) => {
     console.error('[public/quote] error:', err);
     res.status(500).json({ error: 'Something went wrong. Please contact us directly.' });
   }
+});
+
+// ---------------------------------------------------------------------------
+// Client-facing Accepter / Refuser links, clicked from the "Nous sommes
+// prêts" (ready_to_work) email - no login, reachable by anyone with the
+// link, so the link itself (a random 48-char token, not the client's
+// database id) is what protects it. A fresh token is issued every time a
+// tarif is (re)sent (see dashboard.js /clients/:id/ready-to-work), so an
+// old email's buttons stop working once a new quote goes out.
+//
+// This only records the answer on the client's record (visible in Demandes
+// en Attente) - it does NOT move them to Demandes Actives by itself. Your
+// dad still clicks "Déplacer vers Demandes Actives" himself once he's seen
+// the acceptance, same as he would after a phone call.
+router.get('/respond/:token', async (req, res) => {
+  const { token } = req.params;
+  const action = req.query.action === 'refuse' ? 'refused' : (req.query.action === 'accept' ? 'accepted' : null);
+
+  if (!token || !action) return res.status(400).send('Lien invalide / Invalid link');
+
+  const client = await prisma.client.findUnique({ where: { responseToken: token } });
+  if (!client) {
+    return res.status(404).render('public_respond', { ok: false, action: null });
+  }
+
+  // Only meaningful while still in Demandes en Attente - if it's already
+  // moved on (active/refused/finished), the link is stale; still show a
+  // friendly page instead of an error, just without changing anything.
+  if (client.status === 'waiting') {
+    await prisma.client.update({
+      where: { id: client.id },
+      data: { clientResponse: action, clientResponseAt: new Date() }
+    });
+    await prisma.event.create({
+      data: { clientId: client.id, type: action === 'accepted' ? 'client_accepted' : 'client_refused' }
+    });
+  }
+
+  res.render('public_respond', { ok: true, action });
 });
 
 module.exports = router;

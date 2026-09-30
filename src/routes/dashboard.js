@@ -1,12 +1,27 @@
 // src/routes/dashboard.js
 const express = require('express');
+const crypto = require('crypto');
 const router = express.Router();
 const prisma = require('../db');
 const { requireLogin } = require('../middleware/auth');
 const { notifyClient } = require('../services/notify');
 const { generateInvoicePdf } = require('../services/invoicePdf');
+const { groupDimensions, formatDimensionGroups } = require('../services/dimensions');
 
 router.use(requireLogin);
+
+// "Smart dimensions" one-line summary ("40 x 30 x 20 cm x3, 50 x 50 x 50 cm")
+// for a client, computed server-side and attached to each row before
+// rendering a list page - keeps the list views out of EJS-scope trouble
+// (see client_detail.ejs's dimGroups, computed the same way).
+function withDimSummary(client) {
+  const boxes = (Array.isArray(client.dimensions) && client.dimensions.length)
+    ? client.dimensions
+    : (client.longueur && client.largeur && client.hauteur
+        ? [{ longueur: client.longueur, largeur: client.largeur, hauteur: client.hauteur }]
+        : []);
+  return { ...client, dimSummary: formatDimensionGroups(boxes).join(', ') || '—' };
+}
 
 // ---------------------------------------------------------------------------
 // List pages
@@ -18,7 +33,19 @@ router.get('/potential', async (req, res) => {
     where: { status: 'potential' },
     orderBy: { createdAt: 'desc' }
   });
-  res.render('dashboard_list', { clients, category: 'potential', title: 'Clients Potentiels' });
+  res.render('dashboard_list', { clients: clients.map(withDimSummary), category: 'potential', title: 'Demandes Potentielles' });
+});
+
+// Requests where the tarif has already been sent (ready-to-work) and we're
+// waiting on the client to accept or refuse before moving them to Demandes
+// Actives. See the /clients/:id/ready-to-work handler below, which is what
+// actually moves a client into this status.
+router.get('/waiting', async (req, res) => {
+  const clients = await prisma.client.findMany({
+    where: { status: 'waiting' },
+    orderBy: { createdAt: 'desc' }
+  });
+  res.render('dashboard_list', { clients: clients.map(withDimSummary), category: 'waiting', title: 'Demandes en Attente' });
 });
 
 router.get('/active', async (req, res) => {
@@ -26,7 +53,7 @@ router.get('/active', async (req, res) => {
     where: { status: 'active' },
     orderBy: { createdAt: 'desc' }
   });
-  res.render('dashboard_list', { clients, category: 'active', title: 'Clients Actifs' });
+  res.render('dashboard_list', { clients: clients.map(withDimSummary), category: 'active', title: 'Demandes Actives' });
 });
 
 router.get('/refused', async (req, res) => {
@@ -34,7 +61,7 @@ router.get('/refused', async (req, res) => {
     where: { status: 'refused' },
     orderBy: { createdAt: 'desc' }
   });
-  res.render('dashboard_list', { clients, category: 'refused', title: 'Clients Refusés' });
+  res.render('dashboard_list', { clients: clients.map(withDimSummary), category: 'refused', title: 'Demandes Refusées' });
 });
 
 router.get('/finished', async (req, res) => {
@@ -43,7 +70,7 @@ router.get('/finished', async (req, res) => {
     orderBy: { createdAt: 'desc' },
     include: { invoices: { where: { archived: false }, orderBy: { createdAt: 'desc' } } }
   });
-  res.render('dashboard_list', { clients, category: 'finished', title: 'Clients Terminés' });
+  res.render('dashboard_list', { clients: clients.map(withDimSummary), category: 'finished', title: 'Demandes Terminées' });
 });
 
 // ---------------------------------------------------------------------------
@@ -87,7 +114,7 @@ router.post('/clients', async (req, res) => {
     res.redirect(`/clients/${client.id}`);
   } catch (err) {
     console.error(err);
-    res.render('client_new', { error: "Impossible de créer le client. Vérifiez les champs et réessayez." });
+    res.render('client_new', { error: "Impossible de créer la demande. Vérifiez les champs et réessayez." });
   }
 });
 
@@ -97,7 +124,7 @@ router.post('/clients', async (req, res) => {
 router.get('/clients/:id', async (req, res) => {
   const id = parseInt(req.params.id, 10);
   const client = await prisma.client.findUnique({ where: { id } });
-  if (!client) return res.status(404).send('Client introuvable');
+  if (!client) return res.status(404).send('Demande introuvable');
 
   const events = await prisma.event.findMany({
     where: { clientId: id },
@@ -116,7 +143,18 @@ router.get('/clients/:id', async (req, res) => {
     if (!lastEvents[e.type]) lastEvents[e.type] = e.createdAt;
   }
 
-  res.render('client_detail', { client, events, invoices, lastEvents, flash: req.query.flash || null });
+  // "Smart dimensions": collapse identical boxes into one line shown as
+  // "x2", "x3", ... Falls back to the legacy single longueur/largeur/hauteur
+  // columns for older requests that predate the multi-box "+" button.
+  const dimGroups = groupDimensions(
+    (Array.isArray(client.dimensions) && client.dimensions.length)
+      ? client.dimensions
+      : (client.longueur && client.largeur && client.hauteur
+          ? [{ longueur: client.longueur, largeur: client.largeur, hauteur: client.hauteur }]
+          : [])
+  );
+
+  res.render('client_detail', { client, events, invoices, lastEvents, dimGroups, flash: req.query.flash || null });
 });
 
 // ---------------------------------------------------------------------------
@@ -152,11 +190,20 @@ router.post('/clients/:id/ready-to-work', async (req, res) => {
     .map(q => `${q.airport} — ${q.company} — ${q.direct} — ${q.tarif} DHS/kg TTC`)
     .join(' | ');
 
-  const result = await notifyClient(client, 'ready_to_work', { quotes });
+  // Fresh token every time a tarif is (re)sent - so an old email's links stop
+  // working once a new quote goes out, and the client's previous accept/
+  // refuse answer doesn't linger on a new round of pricing.
+  const responseToken = crypto.randomBytes(24).toString('hex');
+
+  const result = await notifyClient(client, 'ready_to_work', { quotes, responseToken });
+  await prisma.client.update({
+    where: { id },
+    data: { status: 'waiting', responseToken, clientResponse: null, clientResponseAt: null }
+  });
   await prisma.event.create({
     data: { clientId: id, type: 'ready_to_work', reason: summary, messageSent: result.bothOk }
   });
-  res.redirect(`/clients/${id}?flash=Message envoyé`);
+  res.redirect(`/clients/${id}?flash=Devis envoyé — déplacé vers Demandes en Attente`);
 });
 
 router.post('/clients/:id/refuse', async (req, res) => {
@@ -168,7 +215,7 @@ router.post('/clients/:id/refuse', async (req, res) => {
   const result = await notifyClient(client, 'refused', { reason });
   await prisma.client.update({ where: { id }, data: { status: 'refused', refusalReason: reason } });
   await prisma.event.create({ data: { clientId: id, type: 'refused', reason, messageSent: result.bothOk } });
-  res.redirect(`/clients/${id}?flash=Client refusé et déplacé`);
+  res.redirect(`/clients/${id}?flash=Demande refusée et déplacée`);
 });
 
 router.post('/clients/:id/rewake', async (req, res) => {
@@ -188,7 +235,7 @@ router.post('/clients/:id/activate', async (req, res) => {
 
   await prisma.client.update({ where: { id }, data: { status: 'active' } });
   await prisma.event.create({ data: { clientId: id, type: 'moved_active' } });
-  res.redirect(`/clients/${id}?flash=Déplacé vers Clients Actifs`);
+  res.redirect(`/clients/${id}?flash=Déplacé vers Demandes Actives`);
 });
 
 // ---------------------------------------------------------------------------
@@ -320,7 +367,7 @@ router.post('/clients/:id/order-arrived', async (req, res) => {
 
 // A shipment that's already owed money before a real invoice was ever made
 // ("Sans Facture" in the old spreadsheet). Creates a lightweight Invoice
-// record with no PDF, so it still shows up in Clients Terminés and
+// record with no PDF, so it still shows up in Demandes Terminées and
 // Recouvrement like a normal invoice. Use "Modifier" later to turn it into
 // a real invoice once one is actually generated.
 router.post('/clients/:id/add-debt', async (req, res) => {
@@ -414,7 +461,7 @@ router.post('/clients/:id/finish-success', async (req, res) => {
   const result = await notifyClient(client, 'finish_success', {});
   await prisma.client.update({ where: { id }, data: { status: 'finished', outcome: 'success' } });
   await prisma.event.create({ data: { clientId: id, type: 'finish_success', messageSent: result.bothOk } });
-  res.redirect(`/clients/${id}?flash=Client remercié et déplacé vers Terminés`);
+  res.redirect(`/clients/${id}?flash=Client remercié et déplacé vers Demandes Terminées`);
 });
 
 router.post('/clients/:id/finish-failed', async (req, res) => {
@@ -426,7 +473,7 @@ router.post('/clients/:id/finish-failed', async (req, res) => {
   const result = await notifyClient(client, 'finish_failed', { reason });
   await prisma.client.update({ where: { id }, data: { status: 'finished', outcome: 'failed', outcomeReason: reason } });
   await prisma.event.create({ data: { clientId: id, type: 'finish_failed', reason, messageSent: result.bothOk } });
-  res.redirect(`/clients/${id}?flash=Excuses envoyées et déplacé vers Terminés`);
+  res.redirect(`/clients/${id}?flash=Excuses envoyées et déplacé vers Demandes Terminées`);
 });
 
 // ---------------------------------------------------------------------------
